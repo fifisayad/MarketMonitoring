@@ -32,3 +32,7 @@ Based on the provided sketch, the service consists of three main components:
 | **Language**      | Python 3.10+           | Main programming language across all components                             |
 | **Other Tools**| Docker, Pydantic | For containerization, validation, and monitoring                             |
 
+## 📄 License
+
+This project is licensed under the **MIT License**.  
+See the [LICENSE](LICENSE) file for details.
