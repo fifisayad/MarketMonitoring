@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from src.common.enums import ExchangeEnum
+from src.common.enums import ExchangeEnum, PairEnum
 
 
 class SubscriptionRequest(BaseModel):
@@ -18,4 +18,4 @@ class SubscriptionRequest(BaseModel):
     """
 
     exchange: ExchangeEnum
-    pair: str
+    pair: PairEnum
