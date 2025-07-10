@@ -10,11 +10,11 @@ class SubscriptionRequest(BaseModel):
     Attributes:
     ----------
     exchange : ExchangeEnum
-        The target cryptocurrency exchange (e.g., Binance, Coinbase).
+        The target cryptocurrency exchange (e.g., Binance, hyperliquid).
         Enum ensures only supported exchanges are accepted.
 
     pair : str
-        The trading pair to subscribe to (e.g., "BTC/USDT").
+        The trading pair to subscribe to (e.g., "BTCUSDT").
     """
 
     exchange: ExchangeEnum
