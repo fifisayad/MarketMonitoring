@@ -2,7 +2,12 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    REDIS_URL: str = "test"
+    app_host: str = "127.0.0.1"
+    app_port: int = 8000
+    app_reload: bool = False
+
+    class Config:
+        env_file = ".env"
 
 
 settings = Settings()
