@@ -1,7 +1,7 @@
 from typing import Dict
 from fifi import singleton
 
-from .exchanges.exchange_factory import create_exchange_worker
+from .exchanges.exchange_worker_factory import create_exchange_worker
 from ..enums.data_type import DataType
 from ..enums.exchange import Exchange
 from ..enums.market import Market
