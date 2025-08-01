@@ -26,3 +26,8 @@ class Manager:
             self.exchange_workers[exchange][market] = worker
         await worker.subscribe(data_type)
         return worker.channel
+
+    async def stop(self) -> None:
+        for exchange in self.exchange_workers.keys():
+            for market, worker in self.exchange_workers[exchange].items():
+                await worker.stop()
