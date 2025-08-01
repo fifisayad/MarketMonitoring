@@ -1,5 +1,6 @@
 import pytest
-from unittest.mock import patch
+import random
+from unittest.mock import patch, Mock
 from fifi import GetLogger
 
 from src.enums.exchange import Exchange
@@ -33,3 +34,33 @@ class TestManager:
         )
         start.assert_called_once()
         subscribe.assert_called_once()
+
+    @patch.object(HyperliquidExchangeWorker, "start", return_value=None)
+    @patch.object(HyperliquidExchangeWorker, "subscribe", return_value=None)
+    @patch.object(HyperliquidExchangeWorker, "stop", return_value=None)
+    async def test_manager_stop(self, stop: Mock, subscribe: Mock, start: Mock):
+        for i in range(5):
+            channel = await self.manager.subscribe(
+                exchange=Exchange.HYPERLIQUID,
+                market=random.choice(
+                    [
+                        Market.BTCUSD,
+                        Market.BTCUSD_PERP,
+                        Market.ETHUSD,
+                        Market.ETHUSD_PERP,
+                    ]
+                ),
+                data_type=random.choice([DataType.TRADES, DataType.ORDERBOOK]),
+            )
+        worker_counts = 0
+        for exchange in self.manager.exchange_workers:
+            for market, worker in self.manager.exchange_workers[exchange].items():
+                assert worker.channel == f"{exchange.value}_{market.value}"
+                assert isinstance(worker, HyperliquidExchangeWorker)
+                worker_counts += 1
+
+        assert start.call_count == worker_counts - 1
+        assert subscribe.call_count == 5
+
+        await self.manager.stop()
+        assert stop.call_count == worker_counts
