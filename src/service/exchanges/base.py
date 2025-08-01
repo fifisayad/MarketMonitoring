@@ -10,9 +10,11 @@ class BaseExchangeWorker(ABC):
     exchange: Exchange
     market: Market
     data_types: Set[DataType]
+    channel: str
 
     def __init__(self, market: Market):
         self.market = market
+        self.channel = f"{self.exchange.value}_{self.market.value}"
 
     @abstractmethod
     async def start(self):
