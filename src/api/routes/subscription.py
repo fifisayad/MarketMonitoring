@@ -1,26 +1,36 @@
-from fastapi import APIRouter, HTTPException
-from src.common.schemas import SubscriptionRequest
-from src.service.manager import handle_subscription, handle_unsubscription
+from contextlib import asynccontextmanager
+from fastapi import APIRouter, Depends, HTTPException, FastAPI
+
+from .deps import create_manager
+from ...common.schemas import SubscriptionRequestSchema, SubscriptionResponseSchema
+from ...service.manager import Manager
 
 router = APIRouter()
 
 
-@router.post("/subscribe")
-async def subscribe(request: SubscriptionRequest):
-    try:
-        await handle_subscription(request)
-        return {
-            "msg": "data channel is started - now you can subscribe to the channel name.",
-            "result": f"{request.exchange.value}-{request.pair.value}",
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Checking running loop in before starting api gateway
+
+    Args:
+        app (FastAPI)
+    """
+    Manager()
+    yield
 
 
-@router.post("/unsubscribe")
-async def unsubscribe(request: SubscriptionRequest):
+@router.post("/subscribe", response_model=SubscriptionResponseSchema)
+async def subscribe(
+    request: SubscriptionRequestSchema, manager: Manager = Depends(create_manager)
+):
     try:
-        await handle_unsubscription(request)
-        return {"status": "subscription stopped"}
+        channel = await manager.subscribe(
+            exchange=request.exchange,
+            market=request.market,
+            data_type=request.data_type,
+        )
+        return SubscriptionResponseSchema(channel=channel)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
