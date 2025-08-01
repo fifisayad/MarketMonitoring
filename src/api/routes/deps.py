@@ -1,4 +1,4 @@
-from service.manager import Manager
+from ...service.manager import Manager
 
 
 def create_manager() -> Manager:
