@@ -1,10 +1,10 @@
 from typing import Dict
 from fifi import singleton
 
-from enums.data_type import DataType
-from enums.exchange import Exchange
-from enums.market import Market
-from service.exchanges.base import BaseExchangeWorker
+from ..enums.data_type import DataType
+from ..enums.exchange import Exchange
+from ..enums.market import Market
+from .exchanges.base import BaseExchangeWorker
 
 
 @singleton
