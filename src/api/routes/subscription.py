@@ -5,8 +5,6 @@ from .deps import create_manager
 from ...common.schemas import SubscriptionRequestSchema, SubscriptionResponseSchema
 from ...service.manager import Manager
 
-router = APIRouter()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +17,9 @@ async def lifespan(app: FastAPI):
     manager = Manager()
     yield
     await manager.stop()
+
+
+router = APIRouter(lifespan=lifespan)
 
 
 @router.post("/subscribe", response_model=SubscriptionResponseSchema)
