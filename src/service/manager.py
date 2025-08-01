@@ -16,13 +16,13 @@ class Manager:
         self.exchange_workers = dict()
 
     async def subscribe(
-        self, exchane: Exchange, market: Market, data_type: DataType
+        self, exchange: Exchange, market: Market, data_type: DataType
     ) -> str:
-        market_workers = self.exchange_workers.get(exchane)
+        market_workers = self.exchange_workers.get(exchange)
         worker = market_workers.get(market) if market_workers else None
         if worker is None:
-            worker = create_exchange_worker(exchange=exchane, market=market)
+            worker = create_exchange_worker(exchange=exchange, market=market)
             await worker.start()
-            self.exchange_workers[exchane][market] = worker
+            self.exchange_workers[exchange][market] = worker
         await worker.subscribe(data_type)
         return worker.channel
