@@ -11,8 +11,7 @@ class BaseExchangeWorker(ABC):
     market: Market
     data_types: Set[DataType]
 
-    def __init__(self, exchange: Exchange, market: Market):
-        self.exchange = exchange
+    def __init__(self, market: Market):
         self.market = market
 
     @abstractmethod
