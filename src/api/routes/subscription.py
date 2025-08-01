@@ -16,8 +16,9 @@ async def lifespan(app: FastAPI):
     Args:
         app (FastAPI)
     """
-    Manager()
+    manager = Manager()
     yield
+    await manager.stop()
 
 
 @router.post("/subscribe", response_model=SubscriptionResponseSchema)
