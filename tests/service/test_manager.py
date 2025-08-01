@@ -1,38 +1,35 @@
 import pytest
-import pytest_asyncio
-import asyncio
-
-from src.service.manager import create_channel
-from fifi.redis.redis_subscriber import RedisSubscriber
-from fifi.redis.redis_client import RedisClient
+from unittest.mock import patch
 from fifi import GetLogger
 
-exchange = "hyper"
-pair = "BTCUSDT"
+from src.enums.exchange import Exchange
+from src.enums.market import Market
+from src.enums.data_type import DataType
+from src.service.exchanges.hyperliquid_exchange_worker import HyperliquidExchangeWorker
+from src.service.manager import Manager
+
 LOGGER = GetLogger().get()
-CHANNEL = f"{exchange}-{pair}"
 
 
-@pytest_asyncio.fixture
-async def setup_redis_subscriber():
-    LOGGER.info("Creating Redis Subscriber ....")
-    subscriber = await RedisSubscriber.create(CHANNEL)
-    yield subscriber
-    LOGGER.info("Cleaning Redis Subscriber Task ...")
-    subscriber.close()
-
-
-@pytest.mark.redis
 @pytest.mark.asyncio
-async def test_create_channel_publishes_started_message(setup_redis_subscriber):
+class TestManager:
+    manager = Manager()
 
-    await create_channel(exchange, pair)
-    subscriber = setup_redis_subscriber
-    # waiting to recive msg
-    await asyncio.sleep(1)
-
-    message = await subscriber.get_last_message()
-    LOGGER.info(f"Recieved Message: {message}")
-
-    assert message is not None
-    assert "started" in message["data"]
+    @patch.object(HyperliquidExchangeWorker, "start", return_value=None)
+    @patch.object(HyperliquidExchangeWorker, "subscribe", return_value=None)
+    async def test_manager_subscribe(self, start, subscribe):
+        assert len(self.manager.exchange_workers) == 0
+        channel = await self.manager.subscribe(
+            exchange=Exchange.HYPERLIQUID,
+            market=Market.BTCUSD,
+            data_type=DataType.TRADES,
+        )
+        assert channel == f"{Exchange.HYPERLIQUID.value}_{Market.BTCUSD.value}"
+        assert Exchange.HYPERLIQUID in self.manager.exchange_workers
+        assert Market.BTCUSD in self.manager.exchange_workers[Exchange.HYPERLIQUID]
+        assert isinstance(
+            self.manager.exchange_workers[Exchange.HYPERLIQUID][Market.BTCUSD],
+            HyperliquidExchangeWorker,
+        )
+        start.assert_called_once()
+        subscribe.assert_called_once()
