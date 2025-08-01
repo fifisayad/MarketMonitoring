@@ -1,5 +1,4 @@
 import asyncio
-from typing import Literal, Union, overload
 from hyperliquid.info import Info
 from fifi import RedisPublisher
 from .base import BaseExchangeWorker
@@ -55,7 +54,8 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         asyncio.create_task(self.publish(msg))
 
     async def publish(self, msg: str):
-        await self.redis_publisher.publish(msg)
+        await self.redis_publisher.publish(msg)  # type: ignore
 
     async def stop(self):
-        return await super().stop()
+        await self.redis_publisher.redis_client.close()
+        self.info.disconnect_websocket()
