@@ -1,12 +1,12 @@
 from fastapi import FastAPI
+from fifi import GetLogger
 from src.api.routes import subscription
 
 from contextlib import asynccontextmanager
 import asyncio
-import logging
 import uvloop
 
-LOGGER = logging.getLogger("uvicorn.error")
+LOGGER = GetLogger().get()
 
 
 @asynccontextmanager
