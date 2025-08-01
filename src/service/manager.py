@@ -23,7 +23,11 @@ class Manager:
         if worker is None:
             worker = create_exchange_worker(exchange=exchange, market=market)
             await worker.start()
-            self.exchange_workers[exchange][market] = worker
+            if market_workers:
+                self.exchange_workers[exchange][market] = worker
+            else:
+                self.exchange_workers[exchange] = {market: worker}
+
         await worker.subscribe(data_type)
         return worker.channel
 
