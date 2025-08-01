@@ -1,25 +1,33 @@
 from abc import ABC, abstractmethod
+from typing import Set
+
+from ...enums.data_type import DataType
+from ...enums.exchange import Exchange
+from ...enums.market import Market
 
 
 class BaseExchangeWorker(ABC):
-    def __init__(self, pair: str, redis_channel: str, data_type: str = "trades"):
-        self.pair = pair
-        self.data_type = data_type
-        self.redis_channel = redis_channel
+    exchange: Exchange
+    market: Market
+    data_types: Set[DataType]
+
+    def __init__(self, exchange: Exchange, market: Market):
+        self.exchange = exchange
+        self.market = market
 
     @abstractmethod
-    async def connect(self):
+    async def start(self):
         """Establish WebSocket connection"""
         pass
 
     @abstractmethod
-    async def listen(self):
+    async def publish(self):
         """Listen to incoming data and publish to Redis"""
         pass
 
     @abstractmethod
-    async def run(self):
-        """Main loop: connect and start listening"""
+    async def subscribe(self, data_type: DataType):
+        """subscribe new data type"""
         pass
 
     @abstractmethod
@@ -27,6 +35,5 @@ class BaseExchangeWorker(ABC):
         """Cleanup tasks and shutdown logic"""
         pass
 
-    def get_key(self) -> str:
-        """unique id for worker"""
-        return f"{self.__class__.__name__}-{self.pair}-{self.data_type}"
+    def is_data_type_subscribed(self, data_type: DataType) -> bool:
+        return data_type in self.data_types
