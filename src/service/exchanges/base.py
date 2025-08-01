@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Set
 
+from fifi import RedisPublisher
+
 from ...enums.data_type import DataType
 from ...enums.exchange import Exchange
 from ...enums.market import Market
@@ -11,6 +13,7 @@ class BaseExchangeWorker(ABC):
     market: Market
     data_types: Set[DataType]
     channel: str
+    redis_publisher: RedisPublisher
 
     def __init__(self, market: Market):
         self.market = market
@@ -22,7 +25,7 @@ class BaseExchangeWorker(ABC):
         pass
 
     @abstractmethod
-    async def publish(self):
+    async def publish(self, msg: str):
         """Listen to incoming data and publish to Redis"""
         pass
 
