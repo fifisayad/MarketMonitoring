@@ -1,32 +1,18 @@
-from src.common.schemas import SubscriptionRequest
-from src.common.enums import ExchangeEnum, PairEnum
+from typing import Dict
+from fifi import singleton
 
-from src.service.exchanges import hyper
-
-from fifi.redis.redis_client import RedisClient
-from fifi.redis.redis_publisher import RedisPublisher
-
-
-async def handle_subscription(request: SubscriptionRequest):
-    # TODO -> asyncio.gather?? for ensuring that both of these works togther?
-    await start_exchange_service(request.exchange, request.pair),
-    await create_channel(request.exchange, request.pair),
+from enums.data_type import DataType
+from enums.exchange import Exchange
+from enums.market import Market
+from service.exchanges.base import BaseExchangeWorker
 
 
-async def start_exchange_service(exchange: str, pair: str):
-    if exchange in ExchangeEnum and pair in PairEnum:
-        print(ExchangeEnum.hyper.name)
-        # await EXCHANGE_MAP[exchange].run(pair)
-        return {exchange: pair}
-    else:
-        raise ValueError("Unsupported exchange")
+@singleton
+class Manager:
+    exchange_workers: Dict[str, BaseExchangeWorker]
 
+    def __init__(self):
+        self.exchange_workers = dict()
 
-async def create_channel(exchange: str, pair: str):
-    redis_client = await RedisClient.create()
-    redispub = RedisPublisher(redis_client, exchange + "-" + pair)
-    await redispub.publish({"data": "started"})
-
-
-async def handle_unsubscription(request: SubscriptionRequest):
-    pass
+    def subscribe(self, exchane: Exchange, market: Market, data_type: DataType) -> str:
+        return ""
