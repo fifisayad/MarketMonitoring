@@ -20,8 +20,8 @@ def data_type_to_type(
 
 
 def market_to_hyper_market(market: Market) -> str:
-    second_coin = market.value[:3]
-    first_coin = market.value[3:]
+    first_coin = market.value[:3]
+    second_coin = market.value[3:]
     return f"{first_coin.upper()}/{second_coin.upper()}"
 
 
@@ -50,8 +50,8 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         LOGGER.info(f"this {self.channel} worker exchange subscribe this {data_type=}")
         self.info.subscribe(
             {  # type: ignore
-                "type": f"{data_type_to_type(data_type)}",
-                "coin": f"{market_to_hyper_market(self.market)}",
+                "type": data_type_to_type(data_type),
+                "coin": market_to_hyper_market(self.market),
             },
             self.publish_sync,
         )
