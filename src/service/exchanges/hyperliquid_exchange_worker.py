@@ -1,6 +1,6 @@
 import asyncio
 from hyperliquid.info import Info
-from fifi import RedisPublisher
+from fifi import GetLogger, RedisPublisher
 from .base import BaseExchangeWorker
 from ...enums.exchange import Exchange
 from ...enums.market import Market
@@ -25,6 +25,9 @@ def market_to_hyper_market(market: Market) -> str:
     return f"{first_coin.upper()}/{second_coin.upper()}"
 
 
+LOGGER = GetLogger().get()
+
+
 class HyperliquidExchangeWorker(BaseExchangeWorker):
     exchange = Exchange.HYPERLIQUID
     base_url: str
@@ -37,11 +40,14 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
 
     async def start(self):
         self.info = Info(self.base_url)
+        LOGGER.info("create info and websocket to the hyperliquid")
         self.redis_publisher = await RedisPublisher.create(channel=self.channel)
+        LOGGER.info(f"create redis_publisher for this {self.channel}...")
 
     async def subscribe(self, data_type: DataType):
         if self.is_data_type_subscribed(data_type):
             return
+        LOGGER.info(f"this {self.channel} worker exchange subscribe this {data_type=}")
         self.info.subscribe(
             {  # type: ignore
                 "type": f"{data_type_to_type(data_type)}",
