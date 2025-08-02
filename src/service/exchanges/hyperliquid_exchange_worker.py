@@ -20,9 +20,12 @@ def data_type_to_type(
 
 
 def market_to_hyper_market(market: Market) -> str:
-    first_coin = market.value[:3]
-    second_coin = market.value[3:]
-    return f"{first_coin.upper()}/{second_coin.upper()}"
+    if market == Market.BTCUSD:
+        return "BTC/USDC"
+    elif market == Market.BTCUSD_PERP:
+        return "BTC"
+    else:
+        raise ValueError(f"There is no market={market.value} in hyperliquid")
 
 
 LOGGER = GetLogger().get()
