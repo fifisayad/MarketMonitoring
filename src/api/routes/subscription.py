@@ -1,3 +1,4 @@
+import traceback
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
 
@@ -35,4 +36,4 @@ async def subscribe(
         return SubscriptionResponseSchema(channel=channel)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=traceback.format_exc())
