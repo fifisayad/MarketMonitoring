@@ -18,6 +18,7 @@ class BaseExchangeWorker(ABC):
     def __init__(self, market: Market):
         self.market = market
         self.channel = f"{self.exchange.value}_{self.market.value}"
+        self.data_types = set()
 
     @abstractmethod
     async def start(self):
