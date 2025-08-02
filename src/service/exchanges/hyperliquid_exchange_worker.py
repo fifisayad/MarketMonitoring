@@ -55,6 +55,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             },
             self.publish_sync,
         )
+        self.data_types.add(data_type)
 
     def publish_sync(self, msg: str):
         asyncio.create_task(self.publish(msg))
