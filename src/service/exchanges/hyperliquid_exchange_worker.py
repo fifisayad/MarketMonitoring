@@ -1,4 +1,6 @@
 import asyncio
+import queue
+import threading
 from hyperliquid.info import Info
 from fifi import GetLogger, RedisPublisher
 from .base import BaseExchangeWorker
@@ -40,12 +42,21 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         super().__init__(market)
         self.settings = Settings()
         self.base_url = self.settings.HYPERLIQUID_BASE_URL
+        self.message_queue = queue.Queue()
+        self.loop = asyncio.new_event_loop()
+        self._stop_event = threading.Event()
 
     async def start(self):
         self.info = Info(self.base_url)
         LOGGER.info("create info and websocket to the hyperliquid")
         self.redis_publisher = await RedisPublisher.create(channel=self.channel)
         LOGGER.info(f"create redis_publisher for this {self.channel}...")
+        # Start the asyncio loop in a separate thread
+        self.thread = threading.Thread(target=self.loop.run_forever, daemon=True)
+        self.thread.start()
+
+        # Schedule the redis_publisher coroutine on the loop
+        asyncio.run_coroutine_threadsafe(self.publish(), self.loop)
 
     async def subscribe(self, data_type: DataType):
         if self.is_data_type_subscribed(data_type):
@@ -56,16 +67,34 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                 "type": data_type_to_type(data_type),
                 "coin": market_to_hyper_market(self.market),
             },
-            self.publish_sync,
+            self.message_handler,
         )
+        self.message_queue.put({"data": "messages are coming...."})
         self.data_types.add(data_type)
 
-    def publish_sync(self, msg: str):
-        asyncio.create_task(self.publish(msg))
+    def message_handler(self, msg: str):
+        LOGGER.info(f"{msg=}")
+        self.message_queue.put(msg)
 
-    async def publish(self, msg: str):
-        await self.redis_publisher.publish(msg)  # type: ignore
+    async def publish(self):
+        while not self._stop_event.is_set():
+            message = await self.loop.run_in_executor(None, self.message_queue.get)
+            if message:
+                await self.redis_publisher.publish(message=message)
 
     async def stop(self):
-        await self.redis_publisher.redis_client.close()
-        self.info.disconnect_websocket()
+        LOGGER.info(f"shutting down {self.channel} work exchange....")
+        self._stop_event.set()
+        if self.__dict__.get("info", None):
+            self.info.disconnect_websocket()
+        asyncio.run_coroutine_threadsafe(
+            self.redis_publisher.redis_client.close(), self.loop
+        )
+
+        # Stop event loop
+        def shutdown_loop():
+            self.loop.stop()
+
+        self.loop.call_soon_threadsafe(shutdown_loop)
+        self.thread.join()
+        LOGGER.info(f"{self.channel} work exchange is closed")
