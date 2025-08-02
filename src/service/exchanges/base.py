@@ -26,7 +26,7 @@ class BaseExchangeWorker(ABC):
         pass
 
     @abstractmethod
-    async def publish(self, msg: str):
+    async def publish(self):
         """Listen to incoming data and publish to Redis"""
         pass
 
