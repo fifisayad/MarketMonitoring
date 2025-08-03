@@ -1,0 +1,11 @@
+version: '3.8'
+
+name: market-monitoring-service
+services:
+  market-monitoring:
+    container_name: market-monitoring
+    build: .
+    ports:
+      - "1844:1844"
+    entrypoint: ["/bin/sh", "-c", "exec ./run.sh"]
+
