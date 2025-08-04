@@ -3,6 +3,8 @@ import queue
 import threading
 from hyperliquid.info import Info
 from fifi import GetLogger, RedisPublisher
+
+from ...common.schemas import PublishDataSchema
 from .base import BaseExchangeWorker
 from ...enums.exchange import Exchange
 from ...enums.market import Market
@@ -59,6 +61,11 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         asyncio.run_coroutine_threadsafe(self.publish(), self.loop)
 
     async def subscribe(self, data_type: DataType):
+        self.message_queue.put(
+            PublishDataSchema(
+                data={"data": "messages are coming...."}, type=DataType.INFO
+            ).model_dump()
+        )
         if self.is_data_type_subscribed(data_type):
             return
         LOGGER.info(f"this {self.channel} worker exchange subscribe this {data_type=}")
@@ -69,7 +76,6 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             },
             self.message_handler,
         )
-        self.message_queue.put({"data": "messages are coming...."})
         self.data_types.add(data_type)
 
     def message_handler(self, msg: str):
