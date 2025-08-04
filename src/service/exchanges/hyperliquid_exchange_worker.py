@@ -78,8 +78,17 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         )
         self.data_types.add(data_type)
 
-    def message_handler(self, msg: str):
-        LOGGER.info(f"{msg=}")
+    def message_handler(self, msg: dict):
+        if "channel" in msg:
+            if msg["channel"] == "trades":
+                msg = PublishDataSchema(
+                    data={
+                        "price": msg["data"][-1]["px"],
+                        "size": msg["data"][-1]["sz"],
+                    },
+                    type=DataType.TRADES,
+                ).model_dump()
+
         self.message_queue.put(msg)
 
     async def publish(self):
