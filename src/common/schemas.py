@@ -13,3 +13,8 @@ class SubscriptionRequestSchema(BaseModel):
 
 class SubscriptionResponseSchema(BaseModel):
     channel: str
+
+
+class PublishDataSchema(BaseModel):
+    data: dict
+    type: DataType
