@@ -44,7 +44,7 @@ class TestIntegration:
                 msg = await subscribe.get_last_message()
                 LOGGER.info(f"{msg=}")
                 if msg:
-                    if msg["type"] == DataType.TRADES:
+                    if msg["type"] == DataType.TRADES.value:
                         break
             subscribe.close()
             await ac.aclose()
