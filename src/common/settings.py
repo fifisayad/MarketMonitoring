@@ -8,4 +8,4 @@ class Settings(BaseSettings):
         load_dotenv()
         super().__init__()
 
-    HYPERLIQUID_BASE_URL: str = TESTNET_API_URL
+    HYPERLIQUID_BASE_URL: str = MAINNET_API_URL
