@@ -83,8 +83,8 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             if msg["channel"] == "trades":
                 msg = PublishDataSchema(
                     data={
-                        "price": msg["data"][-1]["px"],
-                        "size": msg["data"][-1]["sz"],
+                        "price": float(msg["data"][-1]["px"]),
+                        "size": float(msg["data"][-1]["sz"]),
                     },
                     type=DataType.TRADES,
                 ).model_dump()
