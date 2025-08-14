@@ -9,3 +9,4 @@ class Settings(BaseSettings):
         super().__init__()
 
     HYPERLIQUID_BASE_URL: str = MAINNET_API_URL
+    RESTART_TIME_THRESHOLD: float = 10
