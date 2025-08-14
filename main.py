@@ -1,12 +1,18 @@
 from fastapi import FastAPI
-from fifi import GetLogger
+import coloredlogs
+import logging
 from src.api.routes import subscription
-
 from contextlib import asynccontextmanager
 import asyncio
 import uvloop
 
-LOGGER = GetLogger().get()
+coloredlogs.install()
+LOGGER = logging.getLogger(__name__)
+name_to_level = logging.getLevelNamesMapping()
+logging.basicConfig(
+    level=name_to_level["INFO"],
+    format="[%(asctime)s] [%(levelname)s] [%(funcName)s] %(message)s",
+)
 
 
 @asynccontextmanager
