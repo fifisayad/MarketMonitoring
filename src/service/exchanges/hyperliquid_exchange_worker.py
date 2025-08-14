@@ -4,7 +4,7 @@ import time
 import queue
 import threading
 from hyperliquid.info import Info
-from fifi import GetLogger, RedisPublisher
+from fifi import RedisPublisher, log_exception
 
 from ...common.schemas import PublishDataSchema
 from .base import BaseExchangeWorker
@@ -51,6 +51,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self._stop_event = threading.Event()
         self.last_update_timestamp = 0
 
+    @log_exception()
     async def start(self):
         self.info = Info(self.base_url)
         LOGGER.info("create info and websocket to the hyperliquid")
@@ -64,6 +65,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         asyncio.run_coroutine_threadsafe(self.publish(), self.loop)
         self.last_update_timestamp = time.time()
 
+    @log_exception()
     async def subscribe(self, data_type: DataType):
         self.message_queue.put(
             PublishDataSchema(
@@ -82,6 +84,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         )
         self.data_types.add(data_type)
 
+    @log_exception()
     def message_handler(self, msg: dict):
         if "channel" in msg:
             if msg["channel"] == "trades":
@@ -96,12 +99,14 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self.message_queue.put(msg)
         self.last_update_timestamp = time.time()
 
+    @log_exception()
     async def publish(self):
         while not self._stop_event.is_set():
             message = await self.loop.run_in_executor(None, self.message_queue.get)
             if message:
                 await self.redis_publisher.publish(message=message)
 
+    @log_exception()
     async def stop(self):
         LOGGER.info(f"shutting down {self.channel} work exchange....")
         self._stop_event.set()

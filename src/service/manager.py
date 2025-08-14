@@ -3,7 +3,7 @@ import time
 import threading
 import logging
 from typing import Dict
-from fifi import singleton
+from fifi import log_exception, singleton
 
 from src.common.settings import Settings
 
@@ -43,6 +43,7 @@ class Manager:
         await worker.subscribe(data_type)
         return worker.channel
 
+    @log_exception()
     async def stop(self) -> None:
         # Stop event loop
         def shutdown_loop():
@@ -61,6 +62,7 @@ class Manager:
         if self.thread:
             self.thread.join()
 
+    @log_exception()
     async def start_watcher(self) -> None:
         self.loop = asyncio.new_event_loop()
         # Start the asyncio loop in a separate thread
@@ -70,6 +72,7 @@ class Manager:
         # Schedule the redis_publisher coroutine on the loop
         asyncio.run_coroutine_threadsafe(self.watcher(), self.loop)
 
+    @log_exception()
     async def watcher(self) -> None:
         LOGGER.info("starting manager watcher....")
         while True:
