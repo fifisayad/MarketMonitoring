@@ -14,6 +14,7 @@ class BaseExchangeWorker(ABC):
     data_types: Set[DataType]
     channel: str
     redis_publisher: RedisPublisher
+    last_update_timestamp: float
 
     def __init__(self, market: Market):
         self.market = market

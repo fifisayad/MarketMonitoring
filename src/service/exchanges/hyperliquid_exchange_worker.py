@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import time
 import queue
 import threading
 from hyperliquid.info import Info
@@ -10,6 +12,9 @@ from ...enums.exchange import Exchange
 from ...enums.market import Market
 from ...enums.data_type import DataType
 from ...common.settings import Settings
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def data_type_to_type(
@@ -32,9 +37,6 @@ def market_to_hyper_market(market: Market) -> str:
         raise ValueError(f"There is no market={market.value} in hyperliquid")
 
 
-LOGGER = GetLogger().get()
-
-
 class HyperliquidExchangeWorker(BaseExchangeWorker):
     exchange = Exchange.HYPERLIQUID
     base_url: str
@@ -47,6 +49,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self.message_queue = queue.Queue()
         self.loop = asyncio.new_event_loop()
         self._stop_event = threading.Event()
+        self.last_update_timestamp = 0
 
     async def start(self):
         self.info = Info(self.base_url)
@@ -59,6 +62,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
 
         # Schedule the redis_publisher coroutine on the loop
         asyncio.run_coroutine_threadsafe(self.publish(), self.loop)
+        self.last_update_timestamp = time.time()
 
     async def subscribe(self, data_type: DataType):
         self.message_queue.put(
@@ -90,6 +94,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                 ).model_dump()
 
         self.message_queue.put(msg)
+        self.last_update_timestamp = time.time()
 
     async def publish(self):
         while not self._stop_event.is_set():

@@ -16,6 +16,7 @@ async def lifespan(app: FastAPI):
         app (FastAPI)
     """
     manager = Manager()
+    await manager.start_watcher()
     yield
     await manager.stop()
 

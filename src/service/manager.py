@@ -1,5 +1,11 @@
+import asyncio
+import time
+import threading
+import logging
 from typing import Dict
 from fifi import singleton
+
+from src.common.settings import Settings
 
 from .exchanges.exchange_worker_factory import create_exchange_worker
 from ..enums.data_type import DataType
@@ -8,12 +14,18 @@ from ..enums.market import Market
 from .exchanges.base import BaseExchangeWorker
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 @singleton
 class Manager:
     exchange_workers: Dict[Exchange, Dict[Market, BaseExchangeWorker]]
 
     def __init__(self):
         self.exchange_workers = dict()
+        self.settings = Settings()
+        self.loop = None
+        self.thread = None
 
     async def subscribe(
         self, exchange: Exchange, market: Market, data_type: DataType
@@ -32,6 +44,54 @@ class Manager:
         return worker.channel
 
     async def stop(self) -> None:
+        # Stop event loop
+        def shutdown_loop():
+            if self.loop:
+                self.loop.stop()
+
+        if self.loop:
+            self.loop.call_soon_threadsafe(shutdown_loop)
+
+        # stop worker exchanges
         for exchange in self.exchange_workers.keys():
             for market, worker in self.exchange_workers[exchange].items():
                 await worker.stop()
+
+        LOGGER.info("shutting down manager...")
+        if self.thread:
+            self.thread.join()
+
+    async def start_watcher(self) -> None:
+        self.loop = asyncio.new_event_loop()
+        # Start the asyncio loop in a separate thread
+        self.thread = threading.Thread(target=self.loop.run_forever, daemon=True)
+        self.thread.start()
+
+        # Schedule the redis_publisher coroutine on the loop
+        asyncio.run_coroutine_threadsafe(self.watcher(), self.loop)
+
+    async def watcher(self) -> None:
+        LOGGER.info("starting manager watcher....")
+        while True:
+            await asyncio.sleep(self.settings.RESTART_TIME_THRESHOLD)
+            for ex, market_worker in self.exchange_workers.items():
+                for market, worker in market_worker.items():
+                    if (
+                        time.time() - worker.last_update_timestamp
+                        > self.settings.RESTART_TIME_THRESHOLD
+                    ):
+                        await self.restart_ex_worker(
+                            ex=ex, market=market, worker=worker
+                        )
+
+    async def restart_ex_worker(
+        self, ex: Exchange, market: Market, worker: BaseExchangeWorker
+    ) -> None:
+        LOGGER.info(f"restarting {worker.channel} worker....")
+        await worker.stop()
+        new_worker = create_exchange_worker(exchange=ex, market=market)
+        await new_worker.start()
+        self.exchange_workers[ex][market] = new_worker
+        for dt in worker.data_types:
+            await new_worker.subscribe(data_type=dt)
+        del worker
