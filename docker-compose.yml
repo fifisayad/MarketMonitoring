@@ -8,4 +8,6 @@ services:
     ports:
       - "1844:1844"
     entrypoint: ["/bin/sh", "-c", "exec ./run.sh"]
-
+    volumes:
+      - .env:/app/.env
+      - ./logs/:/app/logs

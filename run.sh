@@ -10,6 +10,7 @@ ACCESS_LOG=.gunicorn-access.log
 export $(grep -v '^#' .env | xargs)
 
 mkdir .tmp || true
+mkdir logs || true
 touch $ERROR_LOG
 touch $ACCESS_LOG
 
