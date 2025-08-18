@@ -23,7 +23,7 @@ class RSIIndicator(BaseEngine):
         super().__init__(run_in_process=True)
         self.exchange = exchange
         self.market = market
-        self.name = f"RSI_{self.exchange}_{self.market}_engine"
+        self.name = f"RSI_{self.exchange}_{self.market}"
         self.monitor_channel = f"{self.exchange.value}_{self.market.value}"
         self.close_prices = np.arange(self.data_length, dtype=np.float64)
 
@@ -37,7 +37,7 @@ class RSIIndicator(BaseEngine):
 
         # redis hash model for rsi
         self.rsi_model = await RSIModel.create(
-            exchange=self.exchange, market=self.market, rsi=0, time=0
+            pk=self.name, exchange=self.exchange, market=self.market, rsi=0, time=0
         )
         await self.rsi_model.save()
 
@@ -57,7 +57,7 @@ class RSIIndicator(BaseEngine):
                 last_minute = current_minute
                 continue
             rsi = _rsi_numba(self.close_prices)
-            self.rsi_model.update(rsi=rsi, time=time.time())
+            await self.rsi_model.update(rsi=rsi, time=time.time())
 
     async def get_last_trade(self) -> Dict[str, float]:
         last_trade = await self.monitor.get_last_message()
