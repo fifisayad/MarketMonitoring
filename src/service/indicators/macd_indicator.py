@@ -4,15 +4,17 @@ import numpy as np
 from numba import njit
 from datetime import datetime
 from typing import Dict
-from fifi import BaseEngine, RedisSubscriber, log_exception
+from fifi import RedisSubscriber, log_exception
 
+from .base import BaseIndicator
 from ...enums.exchange import Exchange
 from ...enums.market import Market
 from ...enums.data_type import DataType
 from ...models.macd_model import MACDModel
 
 
-class MACDIndicator(BaseEngine):
+class MACDIndicator(BaseIndicator):
+    indicator_name: str = "macd"
     data_length: int = 200  # this best for smooth and reliable result
     monitor: RedisSubscriber
     close_prices: np.ndarray
@@ -20,10 +22,7 @@ class MACDIndicator(BaseEngine):
     macd_model: MACDModel
 
     def __init__(self, exchange: Exchange, market: Market):
-        super().__init__(run_in_process=True)
-        self.exchange = exchange
-        self.market = market
-        self.name = f"MACD_{self.exchange}_{self.market}"
+        super().__init__(exchange=exchange, market=market, run_in_process=True)
         self.monitor_channel = f"{self.exchange.value}_{self.market.value}"
         self.close_prices = np.arange(self.data_length, dtype=np.float64)
 
@@ -37,7 +36,7 @@ class MACDIndicator(BaseEngine):
 
         # redis hash model for rsi
         self.rsi_model = await MACDModel.create(
-            pk=self.name,
+            pk=self.pk,
             exchange=self.exchange,
             market=self.market,
             macd=0,
@@ -67,11 +66,14 @@ class MACDIndicator(BaseEngine):
                 macd=macd, signal=signal, histogram=histogram, time=time.time()
             )
 
+    async def postpare(self) -> None:
+        pass
+
     async def get_last_trade(self) -> Dict[str, float]:
         last_trade = await self.monitor.get_last_message()
         if last_trade:
             if last_trade["type"] == DataType.TRADES.value:
-                self.last_trade = last_trade
+                self.last_trade = last_trade["data"]
         return self.last_trade
 
 

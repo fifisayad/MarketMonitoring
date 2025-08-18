@@ -2,6 +2,9 @@ import traceback
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
 
+from ...enums.data_type import DataType
+from ...enums.exchange import Exchange
+from ...enums.market import Market
 from .deps import create_manager
 from ...common.schemas import SubscriptionRequestSchema, SubscriptionResponseSchema
 from ...service.manager import Manager
@@ -17,6 +20,14 @@ async def lifespan(app: FastAPI):
     """
     manager = Manager()
     await manager.start_watcher()
+    await manager.subscribe(
+        exchange=Exchange.HYPERLIQUID, market=Market.BTCUSD_PERP, data_type=DataType.RSI
+    )
+    # await manager.subscribe(
+    #     exchange=Exchange.HYPERLIQUID,
+    #     market=Market.BTCUSD_PERP,
+    #     data_type=DataType.MACD,
+    # )
     yield
     await manager.stop()
 

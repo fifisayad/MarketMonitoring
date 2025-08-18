@@ -5,8 +5,9 @@ import logging
 from typing import Dict
 from fifi import log_exception, singleton
 
-from src.common.settings import Settings
-
+from .indicators.base import BaseIndicator
+from .indicators.indicator_factory import create_indicator
+from ..common.settings import Settings
 from .exchanges.exchange_worker_factory import create_exchange_worker
 from ..enums.data_type import DataType
 from ..enums.exchange import Exchange
@@ -20,14 +21,49 @@ LOGGER = logging.getLogger(__name__)
 @singleton
 class Manager:
     exchange_workers: Dict[Exchange, Dict[Market, BaseExchangeWorker]]
+    indactor_engines: Dict[Exchange, Dict[Market, BaseIndicator]]
 
     def __init__(self):
         self.exchange_workers = dict()
+        self.indactor_engines = dict()
         self.settings = Settings()
         self.loop = None
         self.thread = None
 
     async def subscribe(
+        self, exchange: Exchange, market: Market, data_type: DataType
+    ) -> str:
+        if data_type in [DataType.ORDERBOOK, DataType.TRADES]:
+            return await self.exchange_worker_subscribe(
+                exchange=exchange, market=market, data_type=data_type
+            )
+        elif data_type in [DataType.RSI, DataType.MACD]:
+            return await self.indicator_subscribe(
+                exchange=exchange, market=market, data_type=data_type
+            )
+        else:
+            return ""
+
+    async def indicator_subscribe(
+        self, exchange: Exchange, market: Market, data_type: DataType
+    ) -> str:
+        data_channel = await self.exchange_worker_subscribe(
+            exchange=exchange, market=market, data_type=DataType.TRADES
+        )
+        market_indicator = self.indactor_engines.get(exchange)
+        indicator_engine = market_indicator.get(market) if market_indicator else None
+        if indicator_engine is None:
+            indicator_engine = create_indicator(
+                exchange=exchange, market=market, data_type=data_type
+            )
+            await indicator_engine.start()
+            if market_indicator:
+                self.indactor_engines[exchange][market] = indicator_engine
+            else:
+                self.indactor_engines[exchange] = {market: indicator_engine}
+        return await indicator_engine.subscribe()
+
+    async def exchange_worker_subscribe(
         self, exchange: Exchange, market: Market, data_type: DataType
     ) -> str:
         market_workers = self.exchange_workers.get(exchange)
