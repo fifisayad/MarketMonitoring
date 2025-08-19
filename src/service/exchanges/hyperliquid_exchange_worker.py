@@ -92,6 +92,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                     data={
                         "price": float(msg["data"][-1]["px"]),
                         "size": float(msg["data"][-1]["sz"]),
+                        "time": float(msg["data"][-1]["time"]) / 1000,
                     },
                     type=DataType.TRADES,
                 ).model_dump()
