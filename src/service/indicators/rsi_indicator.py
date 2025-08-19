@@ -4,7 +4,7 @@ import time
 import numpy as np
 from numba import njit
 from datetime import datetime
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 from fifi import RedisSubscriber, log_exception
 
 from .base import BaseIndicator
@@ -49,20 +49,28 @@ class RSIIndicator(BaseIndicator):
         last_minute = datetime.fromtimestamp(self.last_trade["time"]).minute
         last_price = self.last_trade["price"]
         while True:
-            await self.get_last_trade()
-            current_minute = datetime.fromtimestamp(self.last_trade["time"]).minute
-            if current_minute != last_minute:
-                self.close_prices = np.roll(self.close_prices, -1)
-                self.close_prices[-1] = last_price
-                last_minute = current_minute
-            else:
-                last_price = self.last_trade["price"]
-                self.close_prices[-1] = last_price
-            rsi = _rsi_numba(self.close_prices)
-            await self.rsi_model.update(rsi=rsi, time=time.time())
+            trades = await self.get_last_trades()
+            if trades is None:
+                continue
+            for trade in trades:
+                if trade["type"] == DataType.TRADES.value:
+                    data = trade["data"]
+                    current_minute = datetime.fromtimestamp(data["time"]).minute
+                    if current_minute != last_minute:
+                        self.close_prices = np.roll(self.close_prices, -1)
+                        self.close_prices[-1] = last_price
+                        last_minute = current_minute
+                    else:
+                        last_price = data["price"]
+                        self.close_prices[-1] = last_price
+                    rsi = _rsi_numba(self.close_prices)
+                    await self.rsi_model.update(rsi=rsi, time=time.time())
 
     async def postpare(self) -> None:
         pass
+
+    async def get_last_trades(self) -> Optional[List[Any]]:
+        return await self.monitor.get_messages()
 
     async def get_last_trade(self) -> Dict[str, float]:
         last_trade = await self.monitor.get_last_message()
