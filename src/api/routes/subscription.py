@@ -1,3 +1,4 @@
+import logging
 import traceback
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
@@ -10,6 +11,9 @@ from ...common.schemas import SubscriptionRequestSchema, SubscriptionResponseSch
 from ...service.manager import Manager
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -20,14 +24,16 @@ async def lifespan(app: FastAPI):
     """
     manager = Manager()
     await manager.start_watcher()
-    await manager.subscribe(
+    rsi_key = await manager.subscribe(
         exchange=Exchange.HYPERLIQUID, market=Market.BTCUSD_PERP, data_type=DataType.RSI
     )
-    await manager.subscribe(
+    LOGGER.info(f"{rsi_key=}")
+    macd_key = await manager.subscribe(
         exchange=Exchange.HYPERLIQUID,
         market=Market.BTCUSD_PERP,
         data_type=DataType.MACD,
     )
+    LOGGER.info(f"{macd_key=}")
     yield
     await manager.stop()
 
