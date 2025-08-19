@@ -89,6 +89,11 @@ class Manager:
         if self.loop:
             self.loop.call_soon_threadsafe(shutdown_loop)
 
+        # stop indactor enignes
+        for exchange in self.indactor_engines.keys():
+            for market, engine in self.indactor_engines[exchange].items():
+                await engine.stop()
+
         # stop worker exchanges
         for exchange in self.exchange_workers.keys():
             for market, worker in self.exchange_workers[exchange].items():
