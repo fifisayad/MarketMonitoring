@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 @singleton
 class Manager:
     exchange_workers: Dict[Exchange, Dict[Market, BaseExchangeWorker]]
-    indactor_engines: Dict[Exchange, Dict[Market, BaseIndicator]]
+    indactor_engines: Dict[Exchange, Dict[Market, Dict[DataType, BaseIndicator]]]
 
     def __init__(self):
         self.exchange_workers = dict()
@@ -51,17 +51,22 @@ class Manager:
             exchange=exchange, market=market, data_type=DataType.TRADES
         )
         market_indicator = self.indactor_engines.get(exchange)
-        indicator_engine = market_indicator.get(market) if market_indicator else None
-        if indicator_engine is None:
-            indicator_engine = create_indicator(
+        indicator = market_indicator.get(market) if market_indicator else None
+        engine = indicator.get(data_type) if indicator else None
+        if engine is None:
+            engine = create_indicator(
                 exchange=exchange, market=market, data_type=data_type
             )
-            await indicator_engine.start()
-            if market_indicator:
-                self.indactor_engines[exchange][market] = indicator_engine
+            await engine.start()
+            if indicator:
+                self.indactor_engines[exchange][market][data_type] = engine
             else:
-                self.indactor_engines[exchange] = {market: indicator_engine}
-        return await indicator_engine.subscribe()
+                if market_indicator:
+                    self.indactor_engines[exchange][market] = {data_type: engine}
+                else:
+                    self.indactor_engines[exchange] = {market: {data_type: engine}}
+
+        return await engine.subscribe()
 
     async def exchange_worker_subscribe(
         self, exchange: Exchange, market: Market, data_type: DataType
@@ -91,8 +96,9 @@ class Manager:
 
         # stop indactor enignes
         for exchange in self.indactor_engines.keys():
-            for market, engine in self.indactor_engines[exchange].items():
-                await engine.stop()
+            for market, indicator in self.indactor_engines[exchange].items():
+                for data_type, engine in indicator.items():
+                    await engine.stop()
 
         # stop worker exchanges
         for exchange in self.exchange_workers.keys():
