@@ -1,5 +1,6 @@
 import asyncio
 import time
+from hyperliquid.info import Info
 import numpy as np
 from numba import njit
 from datetime import datetime
@@ -11,6 +12,7 @@ from ...enums.exchange import Exchange
 from ...enums.market import Market
 from ...enums.data_type import DataType
 from ...models.macd_model import MACDModel
+from ...helpers.hyperliquid_helpers import *
 
 
 class MACDIndicator(BaseIndicator):
@@ -24,10 +26,29 @@ class MACDIndicator(BaseIndicator):
     def __init__(self, exchange: Exchange, market: Market):
         super().__init__(exchange=exchange, market=market, run_in_process=True)
         self.monitor_channel = f"{self.exchange.value}_{self.market.value}"
-        self.close_prices = np.arange(self.data_length, dtype=np.float64)
+        self.base_url = self.settings.HYPERLIQUID_BASE_URL
 
     @log_exception()
     async def prepare(self) -> None:
+        # initial close prices
+        self.info = Info(self.base_url)
+        now_ms = int(time.time() * 1000)
+        minutes_ago_ms = now_ms - (500 * 60 * 1000)
+        candles = self.info.candles_snapshot(
+            name=market_to_hyper_market(Market.BTCUSD_PERP),
+            interval="1m",
+            startTime=minutes_ago_ms,
+            endTime=now_ms,
+        )
+        self.info.disconnect_websocket()
+
+        candles_length = len(candles)
+        self.close_prices = np.arange(self.data_length, dtype=np.float64)
+        for i in range(self.data_length):
+            self.close_prices[i] = float(
+                candles[candles_length - self.data_length + i]["c"]
+            )
+
         # setup redis subscriber for monitor
         self.monitor = await RedisSubscriber.create(channel=self.monitor_channel)
         while not self.last_trade:

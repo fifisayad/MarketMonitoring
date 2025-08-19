@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from fifi import BaseEngine
 
+from ...common.settings import Settings
 from ...enums.exchange import Exchange
 from ...enums.market import Market
 
@@ -21,6 +22,7 @@ class BaseIndicator(BaseEngine, ABC):
             f"{self.exchange.value}_{self.market.value}_{self.indicator_name}_engine"
         )
         self.pk = f"{self.exchange.value}_{self.market.value}_{self.indicator_name}"
+        self.settings = Settings()
 
     async def subscribe(self) -> str:
         return self.pk
