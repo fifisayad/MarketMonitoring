@@ -23,11 +23,11 @@ async def lifespan(app: FastAPI):
     await manager.subscribe(
         exchange=Exchange.HYPERLIQUID, market=Market.BTCUSD_PERP, data_type=DataType.RSI
     )
-    # await manager.subscribe(
-    #     exchange=Exchange.HYPERLIQUID,
-    #     market=Market.BTCUSD_PERP,
-    #     data_type=DataType.MACD,
-    # )
+    await manager.subscribe(
+        exchange=Exchange.HYPERLIQUID,
+        market=Market.BTCUSD_PERP,
+        data_type=DataType.MACD,
+    )
     yield
     await manager.stop()
 
