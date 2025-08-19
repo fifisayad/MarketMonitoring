@@ -10,3 +10,4 @@ class Settings(BaseSettings):
 
     HYPERLIQUID_BASE_URL: str = MAINNET_API_URL
     RESTART_TIME_THRESHOLD: float = 10
+    LOG_LEVEL: str = "INFO"
