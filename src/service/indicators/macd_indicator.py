@@ -54,13 +54,12 @@ class MACDIndicator(BaseIndicator):
             await self.get_last_trade()
             current_minute = datetime.fromtimestamp(self.last_trade["time"]).minute
             if current_minute != last_minute:
-                if len(self.close_prices) == self.data_length:
-                    self.close_prices = np.roll(self.close_prices, -1)
+                self.close_prices = np.roll(self.close_prices, -1)
                 self.close_prices[-1] = last_price
+                last_minute = current_minute
             else:
                 last_price = self.last_trade["price"]
-                last_minute = current_minute
-                continue
+                self.close_prices[-1] = last_price
             macd, signal, histogram = _macd_numba(self.close_prices)
             await self.rsi_model.update(
                 macd=macd, signal=signal, histogram=histogram, time=time.time()

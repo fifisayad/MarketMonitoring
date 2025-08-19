@@ -43,7 +43,6 @@ class RSIIndicator(BaseIndicator):
             pk=self.pk, exchange=self.exchange, market=self.market, rsi=0, time=0
         )
         await self.rsi_model.save()
-        LOGGER.info(f"saved rsi model: {self.rsi_model.dict()}")
 
     @log_exception()
     async def execute(self) -> None:
@@ -53,24 +52,20 @@ class RSIIndicator(BaseIndicator):
             await self.get_last_trade()
             current_minute = datetime.fromtimestamp(self.last_trade["time"]).minute
             if current_minute != last_minute:
-                if len(self.close_prices) == self.data_length:
-                    self.close_prices = np.roll(self.close_prices, -1)
+                self.close_prices = np.roll(self.close_prices, -1)
                 self.close_prices[-1] = last_price
+                last_minute = current_minute
             else:
                 last_price = self.last_trade["price"]
-                last_minute = current_minute
-                await asyncio.sleep(1)
-                continue
-            rsi = self._rsi_calc()
+                self.close_prices[-1] = last_price
+            rsi = _rsi_numba(self.close_prices)
             await self.rsi_model.update(rsi=rsi, time=time.time())
-            LOGGER.info(f"update rsi model: {self.rsi_model.dict()}")
 
     async def postpare(self) -> None:
         pass
 
     async def get_last_trade(self) -> Dict[str, float]:
         last_trade = await self.monitor.get_last_message()
-        LOGGER.info(last_trade)
         if last_trade:
             if last_trade["type"] == DataType.TRADES.value:
                 self.last_trade = last_trade["data"]
@@ -96,22 +91,21 @@ class RSIIndicator(BaseIndicator):
         return 100 - (100 / (1 + rs))
 
 
-#
-# @njit
-# def _rsi_numba(prices: np.ndarray, period: int = 14) -> Union[float, Any]:
-#     deltas = np.diff(prices)
-#     gains = np.where(deltas > 0, deltas, 0.0)
-#     losses = np.where(deltas < 0, -deltas, 0.0)
-#
-#     avg_gain = np.mean(gains[:period])
-#     avg_loss = np.mean(losses[:period])
-#
-#     for i in range(period, len(deltas)):
-#         avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-#         avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-#
-#     if avg_loss == 0:
-#         return 100.0
-#
-#     rs = avg_gain / avg_loss
-#     return 100 - (100 / (1 + rs))
+@njit
+def _rsi_numba(prices: np.ndarray, period: int = 14) -> Union[float, Any]:
+    deltas = np.diff(prices)
+    gains = np.where(deltas > 0, deltas, 0.0)
+    losses = np.where(deltas < 0, -deltas, 0.0)
+
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
+
+    for i in range(period, len(deltas)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+
+    if avg_loss == 0:
+        return 100.0
+
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
