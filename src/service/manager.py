@@ -134,8 +134,11 @@ class Manager:
         LOGGER.info(f"restarting {worker.channel} worker....")
         await worker.stop()
         new_worker = create_exchange_worker(exchange=ex, market=market)
-        await new_worker.start()
-        self.exchange_workers[ex][market] = new_worker
-        for dt in worker.data_types:
-            await new_worker.subscribe(data_type=dt)
-        del worker
+        try:
+            await new_worker.start()
+            self.exchange_workers[ex][market] = new_worker
+            for dt in worker.data_types:
+                await new_worker.subscribe(data_type=dt)
+            del worker
+        except:
+            del new_worker
