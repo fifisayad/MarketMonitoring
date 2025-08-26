@@ -11,3 +11,4 @@ class DataType(Enum):
     # indicators
     RSI = "rsi"
     MACD = "macd"
+    SMA = "sma"
