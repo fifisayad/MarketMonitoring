@@ -94,7 +94,9 @@ class SMAIndicator(BaseIndicator):
                     if smas is None or slopes is None:
                         continue
                     await self.sma_model.update(
-                        sma=smas[-1], slope=slope_segments[-1][-1], time=time.time()
+                        sma=float(smas[-1]),
+                        slope=float(slope_segments[-1][-1]),
+                        time=time.time(),
                     )
 
     async def postpare(self) -> None:
