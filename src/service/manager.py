@@ -37,7 +37,7 @@ class Manager:
             return await self.exchange_worker_subscribe(
                 exchange=exchange, market=market, data_type=data_type
             )
-        elif data_type in [DataType.RSI, DataType.MACD]:
+        elif data_type in [DataType.RSI, DataType.MACD, DataType.SMA]:
             return await self.indicator_subscribe(
                 exchange=exchange, market=market, data_type=data_type
             )

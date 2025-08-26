@@ -24,16 +24,12 @@ async def lifespan(app: FastAPI):
     """
     manager = Manager()
     await manager.start_watcher()
-    rsi_key = await manager.subscribe(
-        exchange=Exchange.HYPERLIQUID, market=Market.BTCUSD_PERP, data_type=DataType.RSI
-    )
-    LOGGER.info(f"{rsi_key=}")
-    macd_key = await manager.subscribe(
+    sma_key = await manager.subscribe(
         exchange=Exchange.HYPERLIQUID,
         market=Market.BTCUSD_PERP,
-        data_type=DataType.MACD,
+        data_type=DataType.SMA,
     )
-    LOGGER.info(f"{macd_key=}")
+    LOGGER.info(f"{sma_key=}")
     yield
     await manager.stop()
 
