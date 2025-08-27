@@ -1,4 +1,4 @@
-from ...enums.data_type import DataType
+from ...enums.indicator_type import IndicatorType
 from ...enums.exchange import Exchange
 from ...enums.market import Market
 from .base import BaseIndicator
@@ -8,13 +8,13 @@ from .sma_indicator import SMAIndicator
 
 
 def create_indicator(
-    exchange: Exchange, market: Market, data_type: DataType
+    exchange: Exchange, market: Market, data_type: IndicatorType
 ) -> BaseIndicator:
-    if data_type == DataType.RSI:
+    if data_type == IndicatorType.RSI:
         return RSIIndicator(exchange=exchange, market=market)
-    elif data_type == DataType.MACD:
+    elif data_type == IndicatorType.MACD:
         return MACDIndicator(exchange=exchange, market=market)
-    elif data_type == DataType.SMA:
+    elif data_type == IndicatorType.SMA:
         return SMAIndicator(exchange=exchange, market=market)
     else:
         raise ValueError(f"There isn't indicator for {data_type.value}")
