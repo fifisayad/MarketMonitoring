@@ -10,6 +10,7 @@ from .indicators.indicator_factory import create_indicator
 from ..common.settings import Settings
 from .exchanges.exchange_worker_factory import create_exchange_worker
 from ..enums.data_type import DataType
+from ..enums.indicator_type import IndicatorType
 from ..enums.exchange import Exchange
 from ..enums.market import Market
 from .exchanges.base import BaseExchangeWorker
@@ -33,11 +34,11 @@ class Manager:
     async def subscribe(
         self, exchange: Exchange, market: Market, data_type: DataType
     ) -> str:
-        if data_type in [DataType.ORDERBOOK, DataType.TRADES, DataType.CANDLE1M]:
+        if data_type in DataType:
             return await self.exchange_worker_subscribe(
                 exchange=exchange, market=market, data_type=data_type
             )
-        elif data_type in [DataType.RSI, DataType.MACD, DataType.SMA]:
+        elif data_type in IndicatorType:
             return await self.indicator_subscribe(
                 exchange=exchange, market=market, data_type=data_type
             )
