@@ -8,7 +8,8 @@ from ...enums.exchange import Exchange
 from ...enums.market import Market
 from .deps import create_manager
 from ...common.schemas import (
-    SubscriptionRequestSchema,
+    MarketSubscriptionRequestSchema,
+    IndicatorSubscriptionRequest,
     SubscriptionResponseSchema,
     CandleResponseSchema,
 )
@@ -35,9 +36,13 @@ async def lifespan(app: FastAPI):
 router = APIRouter(lifespan=lifespan)
 
 
-@router.post("/subscribe", response_model=SubscriptionResponseSchema)
-async def subscribe(
-    request: SubscriptionRequestSchema, manager: Manager = Depends(create_manager)
+# ----
+# Market data endpoint
+# ----
+@router.post("/subscribe/market", response_model=SubscriptionResponseSchema)
+async def subscribe_market(
+    request: MarketSubscriptionRequestSchema,
+    manager: Manager = Depends(create_manager),
 ):
     try:
         channel = await manager.subscribe(
@@ -46,13 +51,31 @@ async def subscribe(
             data_type=request.data_type,
         )
         return SubscriptionResponseSchema(channel=channel)
+    except Exception:
+        raise HTTPException(status_code=500, detail=traceback.format_exc())
 
-    except Exception as e:
+
+# ----
+# Indicator endpoint
+# ----
+@router.post("/subscribe/indicator", response_model=SubscriptionResponseSchema)
+async def subscribe_indicator(
+    request: IndicatorSubscriptionRequest,
+    manager: Manager = Depends(create_manager),
+):
+    try:
+        channel = await manager.subscribe(
+            exchange=request.exchange,
+            market=request.market,
+            data_type=request.indicator,
+        )
+        return SubscriptionResponseSchema(channel=channel)
+    except Exception:
         raise HTTPException(status_code=500, detail=traceback.format_exc())
 
 
 @router.post("/candle", response_model=CandleResponseSchema)
-async def candle(request: SubscriptionRequestSchema):
+async def candle(request: MarketSubscriptionRequestSchema):
     try:
         candles = get_candle_snapshots(
             exchange=request.exchange,
