@@ -77,7 +77,7 @@ async def subscribe_indicator(
 
 
 @router.post("/candle", response_model=CandleResponseSchema)
-async def candle(request: SubscriptionRequestSchema):
+async def candle(request: MarketSubscriptionRequestSchema):
     try:
         info = get_info(request.exchange)
         candles = info.candle_snapshot(
