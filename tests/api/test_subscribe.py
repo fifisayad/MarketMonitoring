@@ -4,7 +4,10 @@ from unittest.mock import patch, Mock
 from httpx import ASGITransport, AsyncClient
 from main import app
 from fastapi.encoders import jsonable_encoder
-from src.common.schemas import SubscriptionRequestSchema, SubscriptionResponseSchema
+from src.common.schemas import (
+    MarketSubscriptionRequestSchema,
+    SubscriptionResponseSchema,
+)
 from src.enums.data_type import DataType
 from src.enums.exchange import Exchange
 from src.enums.market import Market
@@ -17,7 +20,7 @@ LOGGER = GetLogger().get()
 @patch.object(HyperliquidExchangeWorker, "subscribe", return_value=None)
 @patch.object(HyperliquidExchangeWorker, "start", return_value=None)
 async def test_subscription(start: Mock, subscribe: Mock):
-    body_schema = SubscriptionRequestSchema(
+    body_schema = MarketSubscriptionRequestSchema(
         exchange=Exchange.HYPERLIQUID, market=Market.BTCUSD, data_type=DataType.TRADES
     )
     async with AsyncClient(

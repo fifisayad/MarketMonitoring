@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from httpx import ASGITransport, AsyncClient
 from fifi import RedisSubscriber, GetLogger
 
-from src.common.schemas import SubscriptionRequestSchema
+from src.common.schemas import MarketSubscriptionRequestSchema
 from src.enums.data_type import DataType
 from src.enums.exchange import Exchange
 from src.enums.market import Market
@@ -23,7 +23,7 @@ class TestIntegration:
         channel = f"{Exchange.HYPERLIQUID.value}_{Market.BTCUSD_PERP.value}"
         subscribe = await RedisSubscriber.create(channel)
         LOGGER.info(f"REDIS_HOST= {os.getenv("REDIS_HOST", "localhost")}")
-        body_schema = SubscriptionRequestSchema(
+        body_schema = MarketSubscriptionRequestSchema(
             exchange=Exchange.HYPERLIQUID,
             market=Market.BTCUSD_PERP,
             data_type=DataType.TRADES,
