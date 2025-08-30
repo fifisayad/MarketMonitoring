@@ -85,7 +85,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                     },
                     type=DataType.TRADES,
                 ).model_dump()
-            if msg["channel"] == "candle":
+            elif msg["channel"] == "candle":
                 msg = PublishDataSchema(
                     data=msg["data"],
                     type=DataType.CANDLE1M,
