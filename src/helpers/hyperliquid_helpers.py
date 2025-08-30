@@ -9,6 +9,8 @@ def data_type_to_type(
         return "trades"
     elif data_type == DataType.ORDERBOOK:
         return "l2Book"
+    elif data_type == DataType.CANDLE1M:
+        return "candle"
     else:
         raise ValueError(f"there is no data type fo {data_type.value} in hyperliquid")
 
