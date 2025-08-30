@@ -7,9 +7,13 @@ from ...enums.data_type import DataType
 from ...enums.exchange import Exchange
 from ...enums.market import Market
 from .deps import create_manager
-from ...common.schemas import SubscriptionRequestSchema, SubscriptionResponseSchema
+from ...common.schemas import (
+    SubscriptionRequestSchema,
+    SubscriptionResponseSchema,
+    CandleResponseSchema,
+)
 from ...service.manager import Manager
-
+from ...service.info.info_factory import get_candle_snapshots
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,12 +28,6 @@ async def lifespan(app: FastAPI):
     """
     manager = Manager()
     await manager.start_watcher()
-    sma_key = await manager.subscribe(
-        exchange=Exchange.HYPERLIQUID,
-        market=Market.BTCUSD_PERP,
-        data_type=DataType.SMA,
-    )
-    LOGGER.info(f"{sma_key=}")
     yield
     await manager.stop()
 
@@ -48,6 +46,20 @@ async def subscribe(
             data_type=request.data_type,
         )
         return SubscriptionResponseSchema(channel=channel)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=traceback.format_exc())
+
+
+@router.post("/candle", response_model=CandleResponseSchema)
+async def candle(request: SubscriptionRequestSchema):
+    try:
+        candles = get_candle_snapshots(
+            exchange=request.exchange,
+            market=request.market,
+            data_type=request.data_type,
+        )
+        return CandleResponseSchema(type=request.data_type, response=candles)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=traceback.format_exc())
