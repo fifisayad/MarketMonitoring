@@ -56,11 +56,19 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         if self.is_data_type_subscribed(data_type):
             return
         LOGGER.info(f"this {self.channel} worker exchange subscribe this {data_type=}")
-        self.info.subscribe(
-            {  # type: ignore
+        if data_type == DataType.CANDLE1M:
+            subscription_message = {
                 "type": data_type_to_type(data_type),
                 "coin": market_to_hyper_market(self.market),
-            },
+                "interval": data_type.value.split("candle")[1],
+            }
+        else:
+            subscription_message = {
+                "type": data_type_to_type(data_type),
+                "coin": market_to_hyper_market(self.market),
+            }
+        self.info.subscribe(
+            subscription_message,
             self.message_handler,
         )
         self.data_types.add(data_type)
@@ -76,6 +84,11 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                         "time": float(msg["data"][-1]["time"]) / 1000,
                     },
                     type=DataType.TRADES,
+                ).model_dump()
+            elif msg["channel"] == "candle":
+                msg = PublishDataSchema(
+                    data=msg["data"],
+                    type=DataType.CANDLE1M,
                 ).model_dump()
 
         self.message_queue.put(msg)

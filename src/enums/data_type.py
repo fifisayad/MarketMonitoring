@@ -7,6 +7,7 @@ class DataType(Enum):
     # Market Data
     TRADES = "trades"
     ORDERBOOK = "orderbook"
+    CANDLE1M = "candle1m"
 
     # indicators
     RSI = "rsi"

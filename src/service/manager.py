@@ -33,7 +33,7 @@ class Manager:
     async def subscribe(
         self, exchange: Exchange, market: Market, data_type: DataType
     ) -> str:
-        if data_type in [DataType.ORDERBOOK, DataType.TRADES]:
+        if data_type in [DataType.ORDERBOOK, DataType.TRADES, DataType.CANDLE1M]:
             return await self.exchange_worker_subscribe(
                 exchange=exchange, market=market, data_type=data_type
             )
