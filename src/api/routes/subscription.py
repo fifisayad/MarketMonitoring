@@ -3,10 +3,12 @@ import traceback
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
 
+from src.service.info.hyperliquid_info import HyperliquidInfo
+
 from ...enums.data_type import DataType
 from ...enums.exchange import Exchange
 from ...enums.market import Market
-from .deps import create_manager
+from .deps import create_manager, create_info
 from ...common.schemas import (
     MarketSubscriptionRequestSchema,
     IndicatorSubscriptionRequest,
@@ -14,7 +16,6 @@ from ...common.schemas import (
     CandleResponseSchema,
 )
 from ...service.manager import Manager
-from ...service.info.info_factory import get_candle_snapshots
 
 LOGGER = logging.getLogger(__name__)
 
@@ -75,9 +76,12 @@ async def subscribe_indicator(
 
 
 @router.post("/candle", response_model=CandleResponseSchema)
-async def candle(request: MarketSubscriptionRequestSchema):
+async def candle(
+    request: SubscriptionRequestSchema,
+    info=Depends(create_info),
+):
     try:
-        candles = get_candle_snapshots(
+        candles = info.candle_snapshots(
             exchange=request.exchange,
             market=request.market,
             data_type=request.data_type,
