@@ -1,12 +1,10 @@
-from ...enums.data_type import DataType
 from ...enums.exchange import Exchange
-from ...enums.market import Market
 
-from ..info import hyperliquid_info
+from .hyperliquid_info import HyperliquidInfo
 
 
-def get_candle_snapshots(exchange: Exchange, market: Market, data_type: DataType):
+def get_info(exchange: Exchange):
     if exchange == Exchange.HYPERLIQUID:
-        return hyperliquid_info.candle_snapshot(market, data_type.value)
+        return HyperliquidInfo()
     else:
-        raise ValueError(f"There isn't indicator for {data_type.value}")
+        raise ValueError(f"There isn't info for {exchange.value}")
