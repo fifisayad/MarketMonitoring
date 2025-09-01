@@ -3,17 +3,18 @@ import traceback
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
 
+from src.service.info.hyperliquid_info import HyperliquidInfo
+
 from ...enums.data_type import DataType
 from ...enums.exchange import Exchange
 from ...enums.market import Market
-from .deps import create_manager
+from .deps import create_manager, create_info
 from ...common.schemas import (
     SubscriptionRequestSchema,
     SubscriptionResponseSchema,
     CandleResponseSchema,
 )
 from ...service.manager import Manager
-from ...service.info.info_factory import get_candle_snapshots
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,9 +53,12 @@ async def subscribe(
 
 
 @router.post("/candle", response_model=CandleResponseSchema)
-async def candle(request: SubscriptionRequestSchema):
+async def candle(
+    request: SubscriptionRequestSchema,
+    info=Depends(create_info),
+):
     try:
-        candles = get_candle_snapshots(
+        candles = info.candle_snapshots(
             exchange=request.exchange,
             market=request.market,
             data_type=request.data_type,
