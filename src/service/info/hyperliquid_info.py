@@ -5,10 +5,11 @@ import time
 from ...helpers.hyperliquid_helpers import market_to_hyper_market
 from ...enums.market import Market
 from ...enums.data_type import DataType
+from .base import BaseInfo
 
 
 @singleton
-class HyperliquidInfo:
+class HyperliquidInfo(BaseInfo):
     def __init__(self) -> None:
         self.settings = Settings()
         self.info = Info(self.settings.HYPERLIQUID_BASE_URL, skip_ws=True)
