@@ -65,6 +65,7 @@ async def subscribe_indicator(
             exchange=request.exchange,
             market=request.market,
             data_type=request.indicator,
+            **request.model_dump(exclude={"exchange", "market", "indicator"}),
         )
         return SubscriptionResponseSchema(channel=channel)
     except Exception:
