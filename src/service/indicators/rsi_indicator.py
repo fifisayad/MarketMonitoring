@@ -27,10 +27,19 @@ class RSIIndicator(BaseIndicator):
     last_trade: Dict[str, float] = {}
     rsi_model: RSIModel
 
-    def __init__(self, exchange: Exchange, market: Market):
+    def __init__(
+        self,
+        exchange: Exchange,
+        market: Market,
+        period: int = 14,
+        timeframe: str = "1m",
+    ):
         super().__init__(exchange=exchange, market=market, run_in_process=True)
+        self.period = period
+        self.timeframe = timeframe
         self.monitor_channel = f"{self.exchange.value}_{self.market.value}"
         self.base_url = self.settings.HYPERLIQUID_BASE_URL
+        self.close_prices = np.array([])
 
     @log_exception()
     async def prepare(self) -> None:
