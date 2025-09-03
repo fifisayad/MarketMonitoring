@@ -32,7 +32,11 @@ class Manager:
         self.thread = None
 
     async def subscribe(
-        self, exchange: Exchange, market: Market, data_type: DataType
+        self,
+        exchange: Exchange,
+        market: Market,
+        data_type: DataType,
+        **kwargs,
     ) -> str:
         if data_type in DataType:
             return await self.exchange_worker_subscribe(
@@ -40,13 +44,20 @@ class Manager:
             )
         elif data_type in IndicatorType:
             return await self.indicator_subscribe(
-                exchange=exchange, market=market, data_type=data_type
+                exchange=exchange,
+                market=market,
+                data_type=data_type,
+                **kwargs,
             )
         else:
             return ""
 
     async def indicator_subscribe(
-        self, exchange: Exchange, market: Market, data_type: DataType
+        self,
+        exchange: Exchange,
+        market: Market,
+        data_type: DataType,
+        **kwargs,
     ) -> str:
         data_channel = await self.exchange_worker_subscribe(
             exchange=exchange, market=market, data_type=DataType.TRADES
@@ -56,7 +67,10 @@ class Manager:
         engine = indicator.get(data_type) if indicator else None
         if engine is None:
             engine = create_indicator(
-                exchange=exchange, market=market, data_type=data_type
+                exchange=exchange,
+                market=market,
+                data_type=data_type,
+                **kwargs,
             )
             await engine.start()
             if indicator:
