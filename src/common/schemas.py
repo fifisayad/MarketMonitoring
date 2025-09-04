@@ -23,8 +23,8 @@ class MarketSubscriptionRequestSchema(BaseModel):
 
 # --- Indicator Subscribe ---
 class BaseIndicatorRequest(BaseModel):
-    exchange: str
-    market: str
+    exchange: Exchange
+    market: Market
     indicator: IndicatorType
 
 
