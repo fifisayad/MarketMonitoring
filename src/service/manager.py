@@ -6,7 +6,7 @@ from typing import Dict
 from fifi import log_exception, singleton
 
 from .indicators.base import BaseIndicator
-from .indicators.indicator_factory import create_indicator
+from .indicators.indicator_factory import create_indicator_worker
 from ..common.settings import Settings
 from .exchanges.exchange_worker_factory import create_exchange_worker
 from ..enums.data_type import DataType
@@ -22,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
 @singleton
 class Manager:
     exchange_workers: Dict[Exchange, Dict[Market, BaseExchangeWorker]]
-    indactor_engines: Dict[Exchange, Dict[Market, Dict[DataType, BaseIndicator]]]
+    indactor_engines: Dict[Exchange, Dict[Market, Dict[IndicatorType, BaseIndicator]]]
 
     def __init__(self):
         self.exchange_workers = dict()
@@ -59,29 +59,25 @@ class Manager:
         data_type: DataType,
         **kwargs,
     ) -> str:
-        data_channel = await self.exchange_worker_subscribe(
-            exchange=exchange, market=market, data_type=DataType.TRADES
-        )
         market_indicator = self.indactor_engines.get(exchange)
         indicator = market_indicator.get(market) if market_indicator else None
-        engine = indicator.get(data_type) if indicator else None
-        if engine is None:
-            engine = create_indicator(
+        worker = indicator.get(data_type) if indicator else None
+        if worker is None:
+            worker = create_indicator_worker(
                 exchange=exchange,
                 market=market,
                 data_type=data_type,
-                **kwargs,
             )
-            await engine.start()
+            await worker.start()
             if indicator:
-                self.indactor_engines[exchange][market][data_type] = engine
+                self.indactor_engines[exchange][market][data_type] = worker
             else:
                 if market_indicator:
-                    self.indactor_engines[exchange][market] = {data_type: engine}
+                    self.indactor_engines[exchange][market] = {data_type: worker}
                 else:
-                    self.indactor_engines[exchange] = {market: {data_type: engine}}
+                    self.indactor_engines[exchange] = {market: {data_type: worker}}
 
-        return await engine.subscribe()
+        return await worker.subscribe(**kwargs)
 
     async def exchange_worker_subscribe(
         self, exchange: Exchange, market: Market, data_type: DataType
