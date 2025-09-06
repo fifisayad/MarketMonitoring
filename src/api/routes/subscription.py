@@ -10,12 +10,16 @@ from ...common.schemas import (
     IndicatorSubscriptionRequest,
     SubscriptionResponseSchema,
     CandleResponseSchema,
+    CandleSubscriptionRequestSchema,
 )
 from ...service.manager import Manager
 
 LOGGER = logging.getLogger(__name__)
 
 
+# ----
+# Lifespan
+# ----
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -26,11 +30,22 @@ async def lifespan(app: FastAPI):
     """
     manager = Manager()
     await manager.start_watcher()
-    yield
-    await manager.stop()
+    try:
+        yield
+    finally:
+        await manager.stop()
 
 
 router = APIRouter(lifespan=lifespan)
+
+
+# ----
+# Helpers
+# ----
+def handle_exception(exc: Exception) -> HTTPException:
+    """Convert any exception into HTTPException with traceback for debugging."""
+    LOGGER.error("API error: %s", exc, exc_info=True)
+    return HTTPException(status_code=500, detail=traceback.format_exc())
 
 
 # ----
@@ -40,7 +55,7 @@ router = APIRouter(lifespan=lifespan)
 async def subscribe_market(
     request: MarketSubscriptionRequestSchema,
     manager: Manager = Depends(create_manager),
-):
+) -> SubscriptionResponseSchema:
     try:
         channel = await manager.subscribe(
             exchange=request.exchange,
@@ -48,8 +63,8 @@ async def subscribe_market(
             data_type=request.data_type,
         )
         return SubscriptionResponseSchema(channel=channel)
-    except Exception:
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+    except Exception as e:
+        raise handle_exception(e)
 
 
 # ----
@@ -59,7 +74,7 @@ async def subscribe_market(
 async def subscribe_indicator(
     request: IndicatorSubscriptionRequest,
     manager: Manager = Depends(create_manager),
-):
+) -> SubscriptionResponseSchema:
     try:
         channel = await manager.subscribe(
             exchange=request.exchange,
@@ -68,22 +83,21 @@ async def subscribe_indicator(
             **request.model_dump(exclude={"exchange", "market", "indicator"}),
         )
         return SubscriptionResponseSchema(channel=channel)
-    except Exception:
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+    except Exception as e:
+        raise handle_exception(e)
 
 
 # ----
 # info endpoint
 # ----
 @router.post("/candle", response_model=CandleResponseSchema)
-async def candle(request: MarketSubscriptionRequestSchema):
+async def candle(request: CandleSubscriptionRequestSchema) -> CandleResponseSchema:
     try:
         info = get_info(request.exchange)
         candles = info.candle_snapshot(
             market=request.market,
-            interval=request.data_type,
+            interval=request.timeframe,
         )
         return CandleResponseSchema(type=request.data_type, response=candles)
-
     except Exception as e:
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+        raise handle_exception(e)
