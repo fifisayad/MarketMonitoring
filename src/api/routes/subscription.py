@@ -96,7 +96,7 @@ async def candle(request: CandleSubscriptionRequestSchema) -> CandleResponseSche
         info = get_info(request.exchange)
         candles = info.candle_snapshot(
             market=request.market,
-            interval=request.timeframe,
+            timeframe=request.timeframe,
         )
         return CandleResponseSchema(type=request.data_type, response=candles)
     except Exception as e:
