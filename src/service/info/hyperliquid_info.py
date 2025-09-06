@@ -38,7 +38,7 @@ class HyperliquidInfo(BaseInfo):
 
         return self.info.candles_snapshot(
             name=market_to_hyper_market(market),
-            interval="candle" + timeframe,
+            interval=timeframe,
             startTime=start_time,
             endTime=now_ms,
         )
