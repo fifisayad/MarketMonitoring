@@ -47,7 +47,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self.last_update_timestamp = time.time()
 
     @log_exception()
-    async def subscribe(self, data_type: DataType):
+    async def subscribe(self, data_type: DataType, **kwargs):
         self.message_queue.put(
             PublishDataSchema(
                 data={"data": "messages are coming...."}, type=DataType.INFO
@@ -56,11 +56,11 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         if self.is_data_type_subscribed(data_type):
             return
         LOGGER.info(f"this {self.channel} worker exchange subscribe this {data_type=}")
-        if data_type == DataType.CANDLE1M:
+        if data_type == DataType.CANDLE:
             subscription_message = {
                 "type": data_type_to_type(data_type),
                 "coin": market_to_hyper_market(self.market),
-                "interval": data_type.value.split("candle")[1],
+                "interval": kwargs["timeframe"],
             }
         else:
             subscription_message = {
@@ -85,10 +85,10 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                     },
                     type=DataType.TRADES,
                 ).model_dump()
-            elif msg["channel"] == "candle":
+            elif msg["channel"] == DataType.CANDLE:
                 msg = PublishDataSchema(
                     data=msg["data"],
-                    type=DataType.CANDLE1M,
+                    type=msg["data"]["i"],
                 ).model_dump()
 
         self.message_queue.put(msg)
