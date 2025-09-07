@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, Field, ValidationInfo
 
 from ..enums.exchange import Exchange
 from ..enums.market import Market
@@ -9,16 +9,25 @@ from typing import List, Dict, Any, Union, Annotated, Literal
 
 
 # --- Market Subscribe ---
-class MarketSubscriptionRequestSchema(BaseModel):
+class MarketSubscriptionBase(BaseModel):
     exchange: Exchange
     market: Market
     data_type: DataType
 
-    @field_validator("data_type")
-    def disallow_info(cls, v: DataType):
-        if v == DataType.INFO:
-            raise ValueError("INFO is not allowed as a data_type")
-        return v
+
+class NonCandleSubscription(MarketSubscriptionBase):
+    data_type: Literal[DataType.TRADES, DataType.ORDERBOOK]
+
+
+class CandleSubscription(MarketSubscriptionBase):
+    data_type: Literal[DataType.CANDLE]
+    timeframe: Literal["1m", "5m"]
+
+
+MarketSubscriptionRequestSchema = Annotated[
+    Union[CandleSubscription, NonCandleSubscription],
+    Field(discriminator="data_type"),
+]
 
 
 # --- Indicator Subscribe ---
@@ -41,6 +50,19 @@ IndicatorSubscriptionRequest = Annotated[
 ]
 
 
+# --- Info Schemas ---
+class CandleSubscriptionRequestSchema(MarketSubscriptionBase):
+    timeframe: Literal["1m", "5m"] = "1m"
+    # 🏁 TODO recive period (e.g 500 recent candles) in endpoint
+
+    @field_validator("timeframe")
+    def validate_timeframe(cls, v: str, info: ValidationInfo) -> str:
+        data_type = info.data.get("data_type")
+        if data_type != DataType.CANDLE:
+            raise ValueError("timeframe only applies to CANDLE data_type")
+        return v
+
+
 # --- Response Schema ---
 class SubscriptionResponseSchema(BaseModel):
     channel: str
@@ -53,4 +75,4 @@ class CandleResponseSchema(BaseModel):
 
 class PublishDataSchema(BaseModel):
     data: dict
-    type: DataType
+    type: str = "1m"  # change here too
