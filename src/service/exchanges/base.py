@@ -20,6 +20,7 @@ class BaseExchangeWorker(ABC):
         self.market = market
         self.channel = f"{self.exchange.value}_{self.market.value}"
         self.data_types = set()
+        self.subscriptions: list[dict] = []
 
     @abstractmethod
     async def start(self):
@@ -41,5 +42,14 @@ class BaseExchangeWorker(ABC):
         """Cleanup tasks and shutdown logic"""
         pass
 
-    def is_data_type_subscribed(self, data_type: DataType) -> bool:
-        return data_type in self.data_types
+    def is_data_type_subscribed(self, data_type: DataType, **kwargs) -> bool:
+        # optionally check if same data_type + interval already subscribed
+        if data_type != DataType.CANDLE:
+            return data_type in self.data_types
+
+        # for candles, check if same timeframe already subscribed
+        timeframe = kwargs.get("timeframe")
+        return any(
+            sub["data_type"] == DataType.CANDLE and sub.get("timeframe") == timeframe
+            for sub in getattr(self, "subscriptions", [])
+        )
