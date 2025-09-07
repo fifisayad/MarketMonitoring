@@ -40,7 +40,10 @@ class Manager:
     ) -> str:
         if data_type in DataType:
             return await self.exchange_worker_subscribe(
-                exchange=exchange, market=market, data_type=data_type
+                exchange=exchange,
+                market=market,
+                data_type=data_type,
+                **kwargs,
             )
         elif data_type in IndicatorType:
             return await self.indicator_subscribe(
@@ -56,7 +59,7 @@ class Manager:
         self,
         exchange: Exchange,
         market: Market,
-        data_type: DataType,
+        data_type: IndicatorType,
         **kwargs,
     ) -> str:
         market_indicator = self.indactor_engines.get(exchange)
@@ -77,10 +80,14 @@ class Manager:
                 else:
                     self.indactor_engines[exchange] = {market: {data_type: worker}}
 
-        return await worker.subscribe(**kwargs)
+        return await worker.subscribe(self, **kwargs)
 
     async def exchange_worker_subscribe(
-        self, exchange: Exchange, market: Market, data_type: DataType
+        self,
+        exchange: Exchange,
+        market: Market,
+        data_type: DataType,
+        **kwargs,
     ) -> str:
         market_workers = self.exchange_workers.get(exchange)
         worker = market_workers.get(market) if market_workers else None
@@ -92,7 +99,7 @@ class Manager:
             else:
                 self.exchange_workers[exchange] = {market: worker}
 
-        await worker.subscribe(data_type)
+        await worker.subscribe(data_type, **kwargs)
         return worker.channel
 
     @log_exception()
