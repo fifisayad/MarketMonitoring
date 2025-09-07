@@ -127,23 +127,30 @@ class Manager:
         if self.thread:
             self.thread.join()
 
-    @log_exception()
     async def start_watcher(self) -> None:
+        """
+        Start the watcher in a separate thread and loop.
+        It periodically checks all exchange workers and restarts them if needed.
+        """
         self.loop = asyncio.new_event_loop()
-        # Start the asyncio loop in a separate thread
         self.thread = threading.Thread(target=self.loop.run_forever, daemon=True)
         self.thread.start()
 
-        # Schedule the redis_publisher coroutine on the loop
+        # Schedule the watcher coroutine on this loop
         asyncio.run_coroutine_threadsafe(self.watcher(), self.loop)
 
     @log_exception()
     async def watcher(self) -> None:
-        LOGGER.info("starting manager watcher....")
+        """
+        Periodically checks exchange workers for stale connections and restarts them.
+        """
+        LOGGER.info("Starting manager watcher...")
+
         while True:
             await asyncio.sleep(self.settings.RESTART_TIME_THRESHOLD)
-            for ex, market_worker in self.exchange_workers.items():
-                for market, worker in market_worker.items():
+
+            for ex, market_workers in self.exchange_workers.items():
+                for market, worker in market_workers.items():
                     if (
                         time.time() - worker.last_update_timestamp
                         > self.settings.RESTART_TIME_THRESHOLD
@@ -152,17 +159,27 @@ class Manager:
                             ex=ex, market=market, worker=worker
                         )
 
+    @log_exception()
     async def restart_ex_worker(
         self, ex: Exchange, market: Market, worker: BaseExchangeWorker
     ) -> None:
-        LOGGER.info(f"restarting {worker.channel} worker....")
+        """
+        Restart a worker and resubscribe all its previous subscriptions.
+        """
+        LOGGER.info(f"Restarting {worker.channel} worker...")
+
+        # Stop old worker
         await worker.stop()
+
+        # Create and start a new worker
         new_worker = create_exchange_worker(exchange=ex, market=market)
         try:
             await new_worker.start()
             self.exchange_workers[ex][market] = new_worker
-            for dt in worker.data_types:
-                await new_worker.subscribe(data_type=dt)
+
+            # Resubscribe all previous subscriptions with stored kwargs
+            for sub in getattr(worker, "subscriptions", []):
+                await new_worker.subscribe(**sub)
+
+        finally:
             del worker
-        except:
-            del new_worker
