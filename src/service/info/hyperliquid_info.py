@@ -19,7 +19,7 @@ class HyperliquidInfo(BaseInfo):
         self,
         market: Market,
         timeframe: str = "1m",
-        period: int = 200,
+        period: int = 500,
     ):
         """
         Get historical candle snapshot.
