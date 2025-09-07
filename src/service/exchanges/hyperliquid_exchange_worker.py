@@ -55,7 +55,6 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         )
 
         if self.is_data_type_subscribed(data_type, **kwargs):
-            print("here")
             return
 
         LOGGER.info(f"{self.channel} subscribing to {data_type=} {kwargs=}")
