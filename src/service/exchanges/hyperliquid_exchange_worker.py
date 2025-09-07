@@ -53,30 +53,37 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                 data={"data": "messages are coming...."}, type=DataType.INFO
             ).model_dump()
         )
-        if self.is_data_type_subscribed(data_type):
+
+        if self.is_data_type_subscribed(data_type, **kwargs):
+            print("here")
             return
-        LOGGER.info(f"this {self.channel} worker exchange subscribe this {data_type=}")
+
+        LOGGER.info(f"{self.channel} subscribing to {data_type=} {kwargs=}")
+
+        # Build subscription message
+        subscription_message = {
+            "type": data_type_to_type(data_type),
+            "coin": market_to_hyper_market(self.market),
+        }
+
+        # Map timeframe -> interval for candles
         if data_type == DataType.CANDLE:
-            subscription_message = {
-                "type": data_type_to_type(data_type),
-                "coin": market_to_hyper_market(self.market),
-                "interval": kwargs["timeframe"],
-            }
-        else:
-            subscription_message = {
-                "type": data_type_to_type(data_type),
-                "coin": market_to_hyper_market(self.market),
-            }
+            subscription_message["interval"] = kwargs["timeframe"]
+
+        # Call actual subscription
         self.info.subscribe(
             subscription_message,
             self.message_handler,
         )
+
+        # Track subscription
         self.data_types.add(data_type)
+        self.subscriptions.append({"data_type": data_type, **kwargs})
 
     @log_exception()
     def message_handler(self, msg: dict):
         if "channel" in msg:
-            if msg["channel"] == "trades":
+            if msg["channel"] == DataType.TRADES:
                 msg = PublishDataSchema(
                     data={
                         "price": float(msg["data"][-1]["px"]),
