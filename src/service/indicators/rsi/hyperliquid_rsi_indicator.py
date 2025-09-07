@@ -39,7 +39,7 @@ class HyperLiquidRSIIndicator(BaseIndicator):
     """
 
     indicator_name: str = "rsi"
-    data_length: int = 500  # Maximum buffer length for smoothing
+    data_length: int = 200  # Maximum buffer length for smoothing
 
     def __init__(self, exchange: Exchange, market: Market):
         """
@@ -112,7 +112,7 @@ class HyperLiquidRSIIndicator(BaseIndicator):
             1. Handles dynamic subscription commands via a multiprocessing queue.
             2. Maintains per-timeframe close price buffers.
             3. Computes RSI for all subscribed periods:
-                - In-progress candle RSI updated on every tick (for detectors).
+                - In-progress candle RSI updated on every tick.
                 - Confirmed candle RSI shifted at candle close.
             4. Stores RSI values in Redis per (timeframe, period).
             5. Marks the engine as ready after processing the first candle.
@@ -129,77 +129,70 @@ class HyperLiquidRSIIndicator(BaseIndicator):
             # -------------------------------
             while not self.command_queue.empty():
                 cmd = self.command_queue.get()
-                if cmd["action"] == "subscribe":
-                    timeframe = cmd["timeframe"]
-                    period = cmd["period"]
+                if cmd["action"] != "subscribe":
+                    continue
 
-                    # Initialize buffer if this timeframe is new
-                    if timeframe not in self.close_prices:
-                        candles = self.info.candle_snapshot(
-                            market=self.market, timeframe=timeframe
-                        )
-                        buffer_len = self.data_length
-                        buffer = np.array(
-                            [float(c["c"]) for c in candles[-buffer_len:]]
-                        )
-                        self.close_prices[timeframe] = buffer
-                        self.subscribed_periods[timeframe] = set()
-                        self.current_candle[timeframe] = None
+                timeframe = cmd["timeframe"]
+                period = cmd["period"]
 
-                    # Track this RSI period
-                    self.subscribed_periods[timeframe].add(period)
-                    LOGGER.info(
-                        f"{self.name}: subscribed to {timeframe}, period {period}"
-                    )
+                if timeframe not in self.close_prices:
+                    await self.bootstrap_buffer(timeframe)
+                    self.subscribed_periods[timeframe] = set()
+
+                self.subscribed_periods[timeframe].add(period)
+                LOGGER.info(f"{self.name}: subscribed to {timeframe}, period {period}")
 
             # -------------------------------
-            # 2️⃣ Process latest market message
+            # 2️⃣ Process incoming messages
             # -------------------------------
             msgs = await self.monitor.get_messages()
             for msg in msgs:
-                if msg and "i" in msg["data"]:
-                    timeframe = msg["data"]["i"]  # Candle interval, e.g., "1m"
-                    close = float(msg["data"]["c"])  # Latest close price
-                    timestamp = float(msg["data"]["t"])  # Candle close timestamp
+                if not msg or "i" not in msg["data"]:
+                    continue
 
-                    if timeframe in self.close_prices:
-                        buffer = self.close_prices[timeframe]
+                timeframe = msg["data"]["i"]
+                close = float(msg["data"]["c"])
+                timestamp = float(msg["data"]["t"])
 
-                        # Determine if candle just closed
-                        candle_closed = self.current_candle[timeframe] != timestamp
-                        if candle_closed:
-                            # Shift buffer to include confirmed candle close
-                            buffer = np.roll(buffer, -1)
-                            buffer[-1] = close
-                            self.current_candle[timeframe] = timestamp
-                        else:
-                            # Update last slot for in-progress candle
-                            buffer[-1] = close
-                        # Compute RSI for all subscribed periods
-                        for period in self.subscribed_periods.get(timeframe, []):
-                            rsi_val = _rsi_numba(buffer, period=period)
-                            print(round(rsi_val, 2))
+                if timeframe not in self.close_prices:
+                    continue  # Should be handled by bootstrap
 
-                            pk = f"{self.exchange.value}_{self.market.value}_{timeframe}_{period}"
-                            try:
-                                rsi_model = await RSIModel.get_by_id(pk)
-                            except NotFoundError:
-                                # Create new model if not exists
-                                rsi_model = await RSIModel.create(
-                                    pk=pk,
-                                    exchange=self.exchange,
-                                    market=self.market,
-                                    timeframe=timeframe,
-                                    period=period,
-                                    rsi=rsi_val,
-                                    time=time.time(),
-                                )
-                                await rsi_model.save()
-                            else:
-                                # Update existing model
-                                await rsi_model.update(rsi=rsi_val, time=time.time())
-                    # Save updated buffer
-                    self.close_prices[timeframe] = buffer
+                buffer = self.close_prices[timeframe]
+                candle_closed = (
+                    self.current_candle.get(timeframe) != timestamp
+                    and self.current_candle.get(timeframe) is not None
+                )
+
+                if candle_closed:
+                    buffer = np.roll(buffer, -1)
+                    buffer[-1] = close
+                    self.current_candle[timeframe] = timestamp
+                else:
+                    buffer[-1] = close
+
+                # Compute RSI for all subscribed periods
+                for period in self.subscribed_periods.get(timeframe, []):
+                    rsi_val = round(_rsi_numba(buffer, period), 2)
+                    print(rsi_val, period)
+
+                    pk = f"{self.exchange.value}_{self.market.value}_{timeframe}_{period}"
+                    try:
+                        rsi_model = await RSIModel.get_by_id(pk)
+                    except NotFoundError:
+                        rsi_model = await RSIModel.create(
+                            pk=pk,
+                            exchange=self.exchange,
+                            market=self.market,
+                            timeframe=timeframe,
+                            period=period,
+                            rsi=rsi_val,
+                            time=time.time(),
+                        )
+                        await rsi_model.save()
+                    else:
+                        await rsi_model.update(rsi=rsi_val, time=time.time())
+
+                self.close_prices[timeframe] = buffer
 
             # -------------------------------
             # 3️⃣ Mark engine as ready
@@ -257,6 +250,71 @@ class HyperLiquidRSIIndicator(BaseIndicator):
 
         # Call base class subscribe (if it has additional behavior)
         return await super().subscribe()
+
+    @log_exception()
+    async def bootstrap_buffer(self, timeframe: str):
+        """
+        Bootstrap the close_prices buffer for a given timeframe by fetching snapshot candles
+        and aligning with the first websocket message.
+
+        Also initializes RSIModel entries in Redis for all currently subscribed periods.
+        """
+        # 1️⃣ Fetch historical candles
+        candles = self.info.candle_snapshot(
+            market=self.market, timeframe=timeframe, period=700
+        )
+        closes = np.array(
+            [float(c["c"]) for c in candles[-self.data_length :]], dtype=np.float64
+        )
+        timestamps = [int(c["t"]) for c in candles]
+
+        self.close_prices[timeframe] = closes
+        self.current_candle[timeframe] = timestamps[-1]  # last snapshot candle time
+
+        LOGGER.info(
+            f"[Bootstrap] {self.market} {timeframe} buffer initialized "
+            f"({len(closes)} closes), last candle @ {self.current_candle[timeframe]}"
+        )
+
+        # 2️⃣ Wait for first WS candle to align
+        while True:
+            msg = await self.monitor.get_last_message()
+            if msg and "i" in msg["data"]:
+                ws_time = int(msg["data"]["t"])
+                ws_close = float(msg["data"]["c"])
+                snap_time = self.current_candle[timeframe]
+
+                if ws_time == snap_time:
+                    closes[-1] = ws_close  # overwrite last snapshot candle
+                elif ws_time > snap_time:
+                    closes = np.roll(closes, -1)
+                    closes[-1] = ws_close
+                    self.current_candle[timeframe] = ws_time
+                else:
+                    LOGGER.warning(
+                        f"[Bootstrap] WS candle behind snapshot ({ws_time} < {snap_time}) ignored"
+                    )
+                break
+
+        self.close_prices[timeframe] = closes
+
+        # 3️⃣ Pre-create Redis models for all subscribed periods
+        for period in self.subscribed_periods.get(timeframe, []):
+            pk = f"{self.exchange.value}_{self.market.value}_{timeframe}_{period}"
+            try:
+                await RSIModel.get_by_id(pk)
+            except NotFoundError:
+                rsi_val = round(_rsi_numba(closes, period), 2)
+                rsi_model = await RSIModel.create(
+                    pk=pk,
+                    exchange=self.exchange,
+                    market=self.market,
+                    timeframe=timeframe,
+                    period=period,
+                    rsi=rsi_val,
+                    time=time.time(),
+                )
+                await rsi_model.save()
 
 
 @njit
