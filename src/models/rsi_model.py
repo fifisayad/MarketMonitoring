@@ -10,4 +10,5 @@ class RSIModel(RedisBaseModel):
     timeframe: str
     period: int
     rsi: float
+    atr: float = 0.0
     time: float
