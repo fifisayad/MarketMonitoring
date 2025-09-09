@@ -1,20 +1,23 @@
-from ...enums.data_type import DataType
+from ...enums.indicator_type import IndicatorType
 from ...enums.exchange import Exchange
 from ...enums.market import Market
 from .base import BaseIndicator
-from .rsi_indicator import RSIIndicator
+from .rsi.hyperliquid_rsi_indicator import HyperLiquidRSIIndicator
 from .macd_indicator import MACDIndicator
 from .sma_indicator import SMAIndicator
 
 
-def create_indicator(
-    exchange: Exchange, market: Market, data_type: DataType
+def create_indicator_worker(
+    exchange: Exchange,
+    market: Market,
+    data_type: IndicatorType,
+    **kwargs,
 ) -> BaseIndicator:
-    if data_type == DataType.RSI:
-        return RSIIndicator(exchange=exchange, market=market)
-    elif data_type == DataType.MACD:
+    if data_type == IndicatorType.RSI:
+        if exchange == Exchange.HYPERLIQUID:
+            return HyperLiquidRSIIndicator(exchange=exchange, market=market)
+    elif data_type == IndicatorType.MACD:
         return MACDIndicator(exchange=exchange, market=market)
-    elif data_type == DataType.SMA:
+    elif data_type == IndicatorType.SMA:
         return SMAIndicator(exchange=exchange, market=market)
-    else:
-        raise ValueError(f"There isn't indicator for {data_type.value}")
+    raise ValueError(f"couldnt find {data_type.value} indicator for {exchange.value}")

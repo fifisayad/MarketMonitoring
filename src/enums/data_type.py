@@ -1,15 +1,10 @@
 from enum import Enum
 
 
-class DataType(Enum):
+class DataType(str, Enum):
     INFO = "info"
 
     # Market Data
     TRADES = "trades"
     ORDERBOOK = "orderbook"
-    CANDLE1M = "candle1m"
-
-    # indicators
-    RSI = "rsi"
-    MACD = "macd"
-    SMA = "sma"
+    CANDLE = "candle"

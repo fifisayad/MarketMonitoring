@@ -9,7 +9,7 @@ def data_type_to_type(
         return "trades"
     elif data_type == DataType.ORDERBOOK:
         return "l2Book"
-    elif data_type == DataType.CANDLE1M:
+    elif data_type == DataType.CANDLE:
         return "candle"
     else:
         raise ValueError(f"there is no data type fo {data_type.value} in hyperliquid")
@@ -23,4 +23,4 @@ def market_to_hyper_market(market: Market) -> str:
     elif market == Market.ETHUSD_PERP:
         return "ETH"
     else:
-        raise ValueError(f"There is no market={market.value} in hyperliquid")
+        raise ValueError(f"There is no market={market} in hyperliquid")
