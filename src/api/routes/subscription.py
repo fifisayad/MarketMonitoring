@@ -3,8 +3,10 @@ import traceback
 from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
 
+
 from ...service.info.info_factory import get_info
 from .deps import create_manager
+
 from ...common.schemas import (
     MarketSubscriptionRequestSchema,
     IndicatorSubscriptionRequest,
@@ -98,6 +100,7 @@ async def candle(request: CandleSubscriptionRequestSchema) -> CandleResponseSche
         candles = info.candle_snapshot(
             market=request.market,
             timeframe=request.timeframe,
+
         )
         return CandleResponseSchema(type=request.data_type, response=candles)
     except Exception as e:

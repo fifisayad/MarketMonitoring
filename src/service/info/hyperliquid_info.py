@@ -1,3 +1,4 @@
+
 import time
 
 from fifi import singleton
@@ -7,7 +8,6 @@ from .base import BaseInfo
 from ...common.settings import Settings
 from ...helpers.hyperliquid_helpers import market_to_hyper_market
 from ...enums.market import Market
-
 
 @singleton
 class HyperliquidInfo(BaseInfo):

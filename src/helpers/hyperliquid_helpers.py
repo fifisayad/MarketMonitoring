@@ -20,5 +20,7 @@ def market_to_hyper_market(market: Market) -> str:
         return "BTC/USDC"
     elif market == Market.BTCUSD_PERP:
         return "BTC"
+    elif market == Market.ETHUSD_PERP:
+        return "ETH"
     else:
         raise ValueError(f"There is no market={market} in hyperliquid")
