@@ -75,4 +75,5 @@ class CandleResponseSchema(BaseModel):
 
 class PublishDataSchema(BaseModel):
     data: dict
-    type: str = "1m"  # change here too
+    type: DataType
+    timeframe: Literal["1m", "5m"] = "1m"

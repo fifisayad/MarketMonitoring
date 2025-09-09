@@ -94,7 +94,8 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             elif msg["channel"] == DataType.CANDLE:
                 msg = PublishDataSchema(
                     data=msg["data"],
-                    type=msg["data"]["i"],
+                    type=DataType.CANDLE,
+                    timeframe=msg["data"]["i"],
                 ).model_dump()
 
         self.message_queue.put(msg)
