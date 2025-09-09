@@ -62,6 +62,12 @@ class Manager:
         data_type: IndicatorType,
         **kwargs,
     ) -> str:
+        await self.exchange_worker_subscribe(
+            exchange,
+            market,
+            DataType.CANDLE,
+            **kwargs,
+        )
         market_indicator = self.indactor_engines.get(exchange)
         indicator = market_indicator.get(market) if market_indicator else None
         worker = indicator.get(data_type) if indicator else None
@@ -80,7 +86,7 @@ class Manager:
                 else:
                     self.indactor_engines[exchange] = {market: {data_type: worker}}
 
-        return await worker.subscribe(self, **kwargs)
+        return await worker.subscribe(**kwargs)
 
     async def exchange_worker_subscribe(
         self,
