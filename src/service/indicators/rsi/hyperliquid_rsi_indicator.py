@@ -54,6 +54,8 @@ class HyperLiquidRSIIndicator(BaseIndicator):
 
         # Buffers keyed only by timeframe
         self.close_prices: Dict[str, np.ndarray] = {}
+        self.high_prices: Dict[str, np.ndarray] = {}  # per timeframe high buffer
+        self.low_prices: Dict[str, np.ndarray] = {}  # per timeframe low buffer
 
         # Track subscribed periods per timeframe
         self.subscribed_periods: Dict[str, Set[int]] = {}
@@ -152,29 +154,46 @@ class HyperLiquidRSIIndicator(BaseIndicator):
 
                 timeframe = msg["data"]["i"]
                 close = float(msg["data"]["c"])
+                high = float(msg["data"]["h"])
+                low = float(msg["data"]["l"])
                 timestamp = float(msg["data"]["t"])
 
                 if timeframe not in self.close_prices:
                     continue  # Should be handled by bootstrap
 
-                buffer = self.close_prices[timeframe]
+                # --- Assign buffers before use ---
+                buffer_c = self.close_prices[timeframe]
+                buffer_h = self.high_prices[timeframe]
+                buffer_l = self.low_prices[timeframe]
+
                 candle_closed = (
                     self.current_candle.get(timeframe) != timestamp
                     and self.current_candle.get(timeframe) is not None
                 )
 
                 if candle_closed:
-                    buffer = np.roll(buffer, -1)
-                    buffer[-1] = close
+                    # Shift buffers
+                    buffer_c = np.roll(buffer_c, -1)
+                    buffer_h = np.roll(buffer_h, -1)
+                    buffer_l = np.roll(buffer_l, -1)
+
+                    # Insert new candle
+                    buffer_c[-1] = close
+                    buffer_h[-1] = high
+                    buffer_l[-1] = low
                     self.current_candle[timeframe] = timestamp
                 else:
-                    buffer[-1] = close
+                    # Update in-progress candle
+                    buffer_c[-1] = close
+                    buffer_h[-1] = high
+                    buffer_l[-1] = low
 
-                # Compute RSI for all subscribed periods
+                # --- Compute RSI & ATR for all subscribed periods ---
                 for period in self.subscribed_periods.get(timeframe, []):
-                    rsi_val = round(_rsi_numba(buffer, period), 2)
-                    print(rsi_val, period)
+                    rsi_val = round(_rsi_numba(buffer_c, period), 2)
+                    atr_val = _atr_numba(buffer_h, buffer_l, buffer_c, period)
 
+                    # Save/update model in Redis
                     pk = f"{self.exchange.value}_{self.market.value}_{timeframe}_{period}"
                     try:
                         rsi_model = await RSIModel.get_by_id(pk)
@@ -186,13 +205,19 @@ class HyperLiquidRSIIndicator(BaseIndicator):
                             timeframe=timeframe,
                             period=period,
                             rsi=rsi_val,
+                            atr=atr_val,
                             time=time.time(),
                         )
                         await rsi_model.save()
                     else:
-                        await rsi_model.update(rsi=rsi_val, time=time.time())
+                        await rsi_model.update(
+                            rsi=rsi_val, atr=atr_val, time=time.time()
+                        )
 
-                self.close_prices[timeframe] = buffer
+                # --- Save buffers back ---
+                self.close_prices[timeframe] = buffer_c
+                self.high_prices[timeframe] = buffer_h
+                self.low_prices[timeframe] = buffer_l
 
             # -------------------------------
             # 3️⃣ Mark engine as ready
@@ -218,7 +243,6 @@ class HyperLiquidRSIIndicator(BaseIndicator):
 
     async def subscribe(
         self,
-        manager,
         period: int = 14,
         timeframe: str = "1m",
     ):
@@ -240,43 +264,49 @@ class HyperLiquidRSIIndicator(BaseIndicator):
             {"action": "subscribe", "period": period, "timeframe": timeframe}
         )
 
-        # Subscribe to the underlying candle stream if not already subscribed
-        await manager.subscribe(
-            self.exchange,
-            self.market,
-            DataType.CANDLE,
-            timeframe=timeframe,
-        )
-
-        # Call base class subscribe (if it has additional behavior)
-        return await super().subscribe()
+        # send back the key of RSIModel
+        return f"{self.exchange.value}_{self.market.value}_{timeframe}_{period}"
 
     @log_exception()
     async def bootstrap_buffer(self, timeframe: str):
         """
-        Bootstrap the close_prices buffer for a given timeframe by fetching snapshot candles
-        and aligning with the first websocket message.
+        Bootstrap the high, low, and close buffers for a given timeframe by fetching
+        historical candles and aligning with the first websocket message.
 
-        Also initializes RSIModel entries in Redis for all currently subscribed periods.
+        Also initializes RSIModel entries in Redis for all currently subscribed periods,
+        storing both RSI and ATR values.
         """
+
+        # -------------------------------
         # 1️⃣ Fetch historical candles
+        # -------------------------------
         candles = self.info.candle_snapshot(
             market=self.market, timeframe=timeframe, period=700
         )
         closes = np.array(
             [float(c["c"]) for c in candles[-self.data_length :]], dtype=np.float64
         )
+        highs = np.array(
+            [float(c["h"]) for c in candles[-self.data_length :]], dtype=np.float64
+        )
+        lows = np.array(
+            [float(c["l"]) for c in candles[-self.data_length :]], dtype=np.float64
+        )
         timestamps = [int(c["t"]) for c in candles]
 
         self.close_prices[timeframe] = closes
-        self.current_candle[timeframe] = timestamps[-1]  # last snapshot candle time
+        self.high_prices[timeframe] = highs
+        self.low_prices[timeframe] = lows
+        self.current_candle[timeframe] = timestamps[-1]
 
         LOGGER.info(
             f"[Bootstrap] {self.market} {timeframe} buffer initialized "
             f"({len(closes)} closes), last candle @ {self.current_candle[timeframe]}"
         )
 
-        # 2️⃣ Wait for first WS candle to align
+        # -------------------------------
+        # 2️⃣ Align with first WebSocket candle
+        # -------------------------------
         while True:
             msg = await self.monitor.get_last_message()
             if msg and "i" in msg["data"]:
@@ -285,7 +315,7 @@ class HyperLiquidRSIIndicator(BaseIndicator):
                 snap_time = self.current_candle[timeframe]
 
                 if ws_time == snap_time:
-                    closes[-1] = ws_close  # overwrite last snapshot candle
+                    closes[-1] = ws_close
                 elif ws_time > snap_time:
                     closes = np.roll(closes, -1)
                     closes[-1] = ws_close
@@ -298,13 +328,19 @@ class HyperLiquidRSIIndicator(BaseIndicator):
 
         self.close_prices[timeframe] = closes
 
-        # 3️⃣ Pre-create Redis models for all subscribed periods
+        # -------------------------------
+        # 3️⃣ Pre-create Redis models with RSI & ATR
+        # -------------------------------
         for period in self.subscribed_periods.get(timeframe, []):
             pk = f"{self.exchange.value}_{self.market.value}_{timeframe}_{period}"
             try:
                 await RSIModel.get_by_id(pk)
             except NotFoundError:
                 rsi_val = round(_rsi_numba(closes, period), 2)
+                atr_val = _atr_numba(
+                    highs, lows, closes, period
+                )  # compute ATR from historical candles
+
                 rsi_model = await RSIModel.create(
                     pk=pk,
                     exchange=self.exchange,
@@ -312,6 +348,7 @@ class HyperLiquidRSIIndicator(BaseIndicator):
                     timeframe=timeframe,
                     period=period,
                     rsi=rsi_val,
+                    atr=atr_val,
                     time=time.time(),
                 )
                 await rsi_model.save()
@@ -335,3 +372,19 @@ def _rsi_numba(prices: np.ndarray, period: int = 14) -> Union[float, Any]:
 
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
+
+
+@njit
+def _atr_numba(
+    highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14
+) -> float:
+    tr = np.zeros(len(highs))
+    for i in range(1, len(highs)):
+        hl = highs[i] - lows[i]
+        hc = abs(highs[i] - closes[i - 1])
+        lc = abs(lows[i] - closes[i - 1])
+        tr[i] = max(hl, hc, lc)
+    atr = np.mean(tr[1 : period + 1])
+    for i in range(period + 1, len(highs)):
+        atr = (atr * (period - 1) + tr[i]) / period
+    return atr
