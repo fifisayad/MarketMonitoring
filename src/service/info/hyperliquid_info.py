@@ -1,4 +1,3 @@
-
 import time
 
 from fifi import singleton
@@ -9,6 +8,7 @@ from ...common.settings import Settings
 from ...helpers.hyperliquid_helpers import market_to_hyper_market
 from ...enums.market import Market
 
+
 @singleton
 class HyperliquidInfo(BaseInfo):
     def __init__(self) -> None:
@@ -16,10 +16,7 @@ class HyperliquidInfo(BaseInfo):
         self.info = Info(self.settings.HYPERLIQUID_BASE_URL, skip_ws=True)
 
     def candle_snapshot(
-        self,
-        market: Market,
-        timeframe: str = "1m",
-        period: int = 500,
+        self, market: Market, timeframe: str = "1m", period: int = 500, *args, **kwargs
     ):
         """
         Get historical candle snapshot.
@@ -27,7 +24,7 @@ class HyperliquidInfo(BaseInfo):
         Args:
             market (Market): Target market.
             interval (str, optional): Candle timeframe (e.g., "1m", "5m", "1h"). Defaults to "1m".
-            period (int, optional): Number of recent candles to fetch. Defaults to 200.
+            period (int, optional): Number of recent candles to fetch. Defaults to 500.
 
         Returns:
             List[dict]: List of candle data points.

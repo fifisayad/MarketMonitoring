@@ -281,7 +281,7 @@ class HyperLiquidRSIIndicator(BaseIndicator):
         # 1️⃣ Fetch historical candles
         # -------------------------------
         candles = self.info.candle_snapshot(
-            market=self.market, timeframe=timeframe, period=700
+            market=self.market, timeframe=timeframe, period=500
         )
         closes = np.array(
             [float(c["c"]) for c in candles[-self.data_length :]], dtype=np.float64
