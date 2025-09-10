@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List
 
 
 class BaseInfo(ABC):
     @abstractmethod
-    async def candle_snapshot(self):
+    def candle_snapshot(self, *args, **kwargs) -> List[Dict[Any, Any]]:
         """retrive candle snapshots from exchange"""
         pass
