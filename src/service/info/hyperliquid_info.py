@@ -12,12 +12,12 @@ from ...enums.market import Market
 
 @singleton
 class HyperliquidInfo(BaseInfo):
-    last_candles: List[Dict[Any, Any]]
+    last_candles: Dict[Market, List[Dict[Any, Any]]]
 
     def __init__(self) -> None:
         self.settings = Settings()
         self.info = Info(self.settings.HYPERLIQUID_BASE_URL, skip_ws=True)
-        self.last_candles = []
+        self.last_candles = {}
 
     def candle_snapshot(
         self,
@@ -40,8 +40,9 @@ class HyperliquidInfo(BaseInfo):
         now_ms = int(time.time() / 60) * 60 * 1000
         start_time = now_ms - (period * 60 * 1000)
 
-        if self.last_candles and int(self.last_candles[-1]["t"]) == now_ms:
-            return self.last_candles
+        internal_candles = self.last_candles.get(market)
+        if internal_candles and int(internal_candles[-1]["t"]) == now_ms:
+            return internal_candles
 
         candles = self.info.candles_snapshot(
             name=market_to_hyper_market(market),
@@ -49,5 +50,5 @@ class HyperliquidInfo(BaseInfo):
             startTime=start_time,
             endTime=now_ms,
         )
-        self.last_candles = candles
+        self.last_candles[market] = candles
         return candles
