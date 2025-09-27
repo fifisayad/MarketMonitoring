@@ -3,6 +3,7 @@ import logging
 import time
 import queue
 import threading
+import random
 from hyperliquid.info import Info
 from fifi import RedisPublisher, log_exception
 
@@ -34,7 +35,22 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
 
     @log_exception()
     async def start(self):
-        self.info = Info(self.base_url)
+        attempt = 0
+        base_delay = 5
+        max_delay = 60
+
+        while attempt < 5:
+            try:
+                self.info = Info(self.base_url)
+                break
+            except Exception as e:
+                attempt += 1
+                delay = min(max_delay, base_delay * (2 ** (attempt - 1)))
+                delay += random.uniform(0, delay / 2)
+                LOGGER.error(
+                    f"Error creating Info: {e} (attempt {attempt}), retrying in {int(delay)}s..."
+                )
+                await asyncio.sleep(delay)
         LOGGER.info("create info and websocket to the hyperliquid")
         self.redis_publisher = await RedisPublisher.create(channel=self.channel)
         LOGGER.info(f"create redis_publisher for this {self.channel}...")
