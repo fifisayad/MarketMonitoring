@@ -1,10 +1,9 @@
-from ...enums.indicator_type import IndicatorType
-from ...enums.exchange import Exchange
-from ...enums.market import Market
+from fifi.enums import Exchange, Market, IndicatorType
+
 from .base import BaseIndicator
 from .rsi.hyperliquid_rsi_indicator import HyperLiquidRSIIndicator
-from .macd_indicator import MACDIndicator
-from .sma_indicator import SMAIndicator
+from .macd.macd_indicator import MACDIndicator
+from .sma.sma_indicator import SMAIndicator
 
 
 def create_indicator_worker(

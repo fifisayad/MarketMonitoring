@@ -1,51 +1,40 @@
 import asyncio
-import logging
 import time
-from hyperliquid.info import Info
 import numpy as np
+
+
+from hyperliquid.info import Info
 from numba import njit
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
+
 from fifi import RedisSubscriber, log_exception
+from fifi.enums import Exchange, Market, DataType
 
-from .base import BaseIndicator
-from ...enums.exchange import Exchange
-from ...enums.market import Market
-from ...enums.data_type import DataType
-from ...models.rsi_model import RSIModel
-from ...helpers.hyperliquid_helpers import *
+from ..base import BaseIndicator
+from ....models.macd_model import MACDModel
+from ....helpers.hyperliquid_helpers import *
 
 
-LOGGER = logging.getLogger(__name__)
-
-
-class RSIIndicator(BaseIndicator):
-    indicator_name: str = "rsi"
-    data_length: int = 14
+class MACDIndicator(BaseIndicator):
+    indicator_name: str = "macd"
+    data_length: int = 200  # this best for smooth and reliable result
     monitor: RedisSubscriber
     close_prices: np.ndarray
     last_trade: Dict[str, float] = {}
-    rsi_model: RSIModel
+    macd_model: MACDModel
 
-    def __init__(
-        self,
-        exchange: Exchange,
-        market: Market,
-        period: int = 14,
-        timeframe: str = "1m",
-    ):
+    def __init__(self, exchange: Exchange, market: Market):
         super().__init__(exchange=exchange, market=market, run_in_process=True)
-        self.period = period
-        self.timeframe = timeframe
         self.monitor_channel = f"{self.exchange.value}_{self.market.value}"
         self.base_url = self.settings.HYPERLIQUID_BASE_URL
-        self.close_prices = np.array([])
 
     @log_exception()
     async def prepare(self) -> None:
+        # initial close prices
         self.info = Info(self.base_url)
         now_ms = int(time.time() * 1000)
-        minutes_ago_ms = now_ms - (200 * 60 * 1000)
+        minutes_ago_ms = now_ms - (500 * 60 * 1000)
         candles = self.info.candles_snapshot(
             name=market_to_hyper_market(Market.BTCUSD_PERP),
             interval="1m",
@@ -68,10 +57,16 @@ class RSIIndicator(BaseIndicator):
             await self.get_last_trade()
 
         # redis hash model for rsi
-        self.rsi_model = await RSIModel.create(
-            pk=self.pk, exchange=self.exchange, market=self.market, rsi=0, time=0
+        self.macd_model = await MACDModel.create(
+            pk=self.pk,
+            exchange=self.exchange,
+            market=self.market,
+            macd=0,
+            signal=0,
+            histogram=0,
+            time=0,
         )
-        await self.rsi_model.save()
+        await self.macd_model.save()
 
     @log_exception()
     async def execute(self) -> None:
@@ -92,8 +87,10 @@ class RSIIndicator(BaseIndicator):
                     else:
                         last_price = data["price"]
                         self.close_prices[-1] = last_price
-                    rsi = _rsi_numba(self.close_prices)
-                    await self.rsi_model.update(rsi=rsi, time=time.time())
+                    macd, signal, histogram = _macd_numba(self.close_prices)
+                    await self.macd_model.update(
+                        macd=macd, signal=signal, histogram=histogram, time=time.time()
+                    )
 
     async def postpare(self) -> None:
         pass
@@ -108,41 +105,22 @@ class RSIIndicator(BaseIndicator):
                 self.last_trade = last_trade["data"]
         return self.last_trade
 
-    def _rsi_calc(self) -> Union[float, Any]:
-        deltas = np.diff(self.close_prices)
-        gains = np.where(deltas > 0, deltas, 0.0)
-        losses = np.where(deltas < 0, -deltas, 0.0)
 
-        avg_gain = np.mean(gains[: self.data_length])
-        avg_loss = np.mean(losses[: self.data_length])
-
-        for i in range(self.data_length, len(deltas)):
-            avg_gain = (avg_gain * (self.data_length - 1) + gains[i]) / self.data_length
-            avg_loss = (
-                avg_loss * (self.data_length - 1) + losses[i]
-            ) / self.data_length
-        if avg_loss == 0:
-            return 100.0
-
-        rs = avg_gain / avg_loss
-        return 100 - (100 / (1 + rs))
+@njit
+def _ema_numba(values: np.ndarray, period: int) -> np.ndarray:
+    ema = np.empty(len(values), dtype=np.float64)
+    alpha = 2 / (period + 1)
+    ema[0] = values[0]
+    for i in range(1, len(values)):
+        ema[i] = alpha * values[i] + (1 - alpha) * ema[i - 1]
+    return ema
 
 
 @njit
-def _rsi_numba(prices: np.ndarray, period: int = 14) -> Union[float, Any]:
-    deltas = np.diff(prices)
-    gains = np.where(deltas > 0, deltas, 0.0)
-    losses = np.where(deltas < 0, -deltas, 0.0)
-
-    avg_gain = np.mean(gains[:period])
-    avg_loss = np.mean(losses[:period])
-
-    for i in range(period, len(deltas)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-
-    if avg_loss == 0:
-        return 100.0
-
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+def _macd_numba(prices: np.ndarray, fast: int = 12, slow: int = 26, signal: int = 9):
+    ema_fast = _ema_numba(prices, fast)
+    ema_slow = _ema_numba(prices, slow)
+    macd_line = ema_fast - ema_slow
+    signal_line = _ema_numba(macd_line, signal)
+    histogram = macd_line - signal_line
+    return macd_line[-1], signal_line[-1], histogram[-1]
