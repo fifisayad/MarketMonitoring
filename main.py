@@ -1,24 +1,14 @@
-from fastapi import FastAPI
-import os
-from dotenv import load_dotenv
-from src.common.settings import Settings
-import coloredlogs
-import logging
-from src.api.routes import subscription
-from contextlib import asynccontextmanager
 import asyncio
 import uvloop
 
-settings = Settings()
-coloredlogs.install()
-load_dotenv()
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from fifi.helpers.get_logger import LoggerFactory
 
-LOGGER = logging.getLogger(__name__)
-name_to_level = logging.getLevelNamesMapping()
-logging.basicConfig(
-    level=name_to_level[settings.LOG_LEVEL],
-    format="[%(asctime)s] [%(levelname)s] [%(funcName)s] %(message)s",
-)
+from src.api.routes import subscription
+
+
+LOGGER = LoggerFactory().get(__name__)
 
 
 @asynccontextmanager
