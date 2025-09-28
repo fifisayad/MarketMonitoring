@@ -1,4 +1,4 @@
-from ...enums.exchange import Exchange
+from fifi.enums import Exchange
 
 from .hyperliquid_info import HyperliquidInfo
 from .base import BaseInfo

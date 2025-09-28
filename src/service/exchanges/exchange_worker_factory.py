@@ -1,8 +1,7 @@
 from .base import BaseExchangeWorker
 from .hyperliquid_exchange_worker import HyperliquidExchangeWorker
 from .binance_exchange_worker import BinanceExchangeWorker
-from ...enums.exchange import Exchange
-from ...enums.market import Market
+from fifi.enums import Exchange, Market
 
 
 def create_exchange_worker(exchange: Exchange, market: Market) -> BaseExchangeWorker:
@@ -11,4 +10,4 @@ def create_exchange_worker(exchange: Exchange, market: Market) -> BaseExchangeWo
     elif exchange == Exchange.BINANCE:
         return BinanceExchangeWorker(market=market)
     else:
-        raise ValueError(f"There isn't exchange worker for {exchange.value()}")
+        raise ValueError(f"There isn't exchange worker for {exchange}")

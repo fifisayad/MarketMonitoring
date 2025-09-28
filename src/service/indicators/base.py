@@ -1,9 +1,9 @@
-from abc import ABC, abstractmethod
+from abc import ABC
+
 from fifi import BaseEngine
+from fifi.enums import Exchange, Market
 
 from ...common.settings import Settings
-from ...enums.exchange import Exchange
-from ...enums.market import Market
 
 
 class BaseIndicator(BaseEngine, ABC):

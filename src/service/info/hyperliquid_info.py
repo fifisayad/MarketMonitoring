@@ -1,13 +1,14 @@
 import time
+
 from typing import Any, Dict, List
+from hyperliquid.info import Info
 
 from fifi import singleton
-from hyperliquid.info import Info
+from fifi.enums import Market
 
 from .base import BaseInfo
 from ...common.settings import Settings
 from ...helpers.hyperliquid_helpers import market_to_hyper_market
-from ...enums.market import Market
 
 
 @singleton

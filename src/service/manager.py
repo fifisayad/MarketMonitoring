@@ -3,17 +3,15 @@ import asyncio
 import threading
 
 from typing import Dict
+
 from fifi import log_exception, singleton
 from fifi.helpers.get_logger import LoggerFactory
+from fifi.enums import Exchange, Market, DataType, IndicatorType
 
+from ..common.settings import Settings
 from .indicators.base import BaseIndicator
 from .indicators.indicator_factory import create_indicator_worker
-from ..common.settings import Settings
 from .exchanges.exchange_worker_factory import create_exchange_worker
-from ..enums.data_type import DataType
-from ..enums.indicator_type import IndicatorType
-from ..enums.exchange import Exchange
-from ..enums.market import Market
 from .exchanges.base import BaseExchangeWorker
 
 

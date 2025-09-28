@@ -1,22 +1,22 @@
 import asyncio
-import logging
 import time
 import queue
 import threading
 import random
-from hyperliquid.info import Info
-from fifi import RedisPublisher, log_exception
 
-from ...common.schemas import PublishDataSchema
+from hyperliquid.info import Info
+
+from fifi import RedisPublisher, log_exception
+from fifi.enums import Exchange, DataType, Market
+from fifi.schema import PublishDataSchema
+from fifi.helpers.get_logger import LoggerFactory
+
 from .base import BaseExchangeWorker
-from ...enums.exchange import Exchange
-from ...enums.market import Market
-from ...enums.data_type import DataType
 from ...common.settings import Settings
 from ...helpers.hyperliquid_helpers import *
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = LoggerFactory().get(__name__)
 
 
 class HyperliquidExchangeWorker(BaseExchangeWorker):

@@ -1,7 +1,5 @@
 from .base import BaseExchangeWorker
-from ...enums.exchange import Exchange
-from ...enums.market import Market
-from ...enums.data_type import DataType
+from fifi.enums import Exchange, Market, DataType
 
 
 class BinanceExchangeWorker(BaseExchangeWorker):
