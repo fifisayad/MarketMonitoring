@@ -1,19 +1,16 @@
-from fifi import GetLogger
+from fifi.helpers.get_logger import LoggerFactory
+from fifi.schema import MarketSubscriptionRequestSchema, SubscriptionResponseSchema
+from fifi.enums import DataType, Exchange, Market
+
 import pytest
 from unittest.mock import patch, Mock
 from httpx import ASGITransport, AsyncClient
 from main import app
 from fastapi.encoders import jsonable_encoder
-from src.common.schemas import (
-    MarketSubscriptionRequestSchema,
-    SubscriptionResponseSchema,
-)
-from src.enums.data_type import DataType
-from src.enums.exchange import Exchange
-from src.enums.market import Market
+
 from src.service.exchanges.hyperliquid_exchange_worker import HyperliquidExchangeWorker
 
-LOGGER = GetLogger().get()
+LOGGER = LoggerFactory().get(__name__)
 
 
 @pytest.mark.anyio

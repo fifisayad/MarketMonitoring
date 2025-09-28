@@ -1,19 +1,19 @@
 import pytest
 import numpy as np
 import time
-import logging
+
 from fakeredis.aioredis import FakeRedis
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from aredis_om.model.model import NotFoundError
+from fifi.enums import Exchange, Market
+from fifi import LoggerFactory
 from src.service.indicators.rsi.hyperliquid_rsi_indicator import (
     HyperLiquidRSIIndicator,
     _rsi_numba,
 )
 from src.models.rsi_model import RSIModel
-from src.enums.exchange import Exchange
-from src.enums.market import Market
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = LoggerFactory.get(__name__)
 
 
 @pytest.mark.asyncio

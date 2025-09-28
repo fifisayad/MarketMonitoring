@@ -1,15 +1,12 @@
 import pytest
 import random
 from unittest.mock import patch, Mock
-from fifi import GetLogger
-
-from src.enums.exchange import Exchange
-from src.enums.market import Market
-from src.enums.data_type import DataType
+from fifi import LoggerFactory
+from fifi.enums import Exchange, Market, DataType
 from src.service.exchanges.hyperliquid_exchange_worker import HyperliquidExchangeWorker
 from src.service.manager import Manager
 
-LOGGER = GetLogger().get()
+LOGGER = LoggerFactory("DEBUG").get(__name__)
 
 
 @pytest.mark.asyncio
