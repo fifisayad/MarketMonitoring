@@ -3,16 +3,15 @@ import traceback
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
 from contextlib import asynccontextmanager
 from fifi.helpers.get_logger import LoggerFactory
-
-from ...service.info.info_factory import get_info
-from ...service.manager import Manager
-from ...common.schemas import (
+from fifi.schema import (
     MarketSubscriptionRequestSchema,
     IndicatorSubscriptionRequest,
     SubscriptionResponseSchema,
     CandleResponseSchema,
-    CandleSubscriptionRequestSchema,
 )
+
+from ...service.info.info_factory import get_info
+from ...service.manager import Manager
 from .deps import create_manager
 
 LOGGER = LoggerFactory().get(__name__)
@@ -93,7 +92,7 @@ async def subscribe_indicator(
 # info endpoint
 # ----
 @router.post("/candle", response_model=CandleResponseSchema)
-async def candle(request: CandleSubscriptionRequestSchema) -> CandleResponseSchema:
+async def candle(request: MarketSubscriptionRequestSchema) -> CandleResponseSchema:
     try:
         info = get_info(request.exchange)
         candles = info.candle_snapshot(
