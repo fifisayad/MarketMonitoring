@@ -1,9 +1,10 @@
-import asyncio
 import time
+import asyncio
 import threading
-import logging
+
 from typing import Dict
 from fifi import log_exception, singleton
+from fifi.helpers.get_logger import LoggerFactory
 
 from .indicators.base import BaseIndicator
 from .indicators.indicator_factory import create_indicator_worker
@@ -16,7 +17,7 @@ from ..enums.market import Market
 from .exchanges.base import BaseExchangeWorker
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = LoggerFactory().get(__name__)
 
 
 @singleton
