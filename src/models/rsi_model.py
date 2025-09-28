@@ -1,7 +1,5 @@
 from fifi import RedisBaseModel
-
-from ..enums.exchange import Exchange
-from ..enums.market import Market
+from fifi.enums import Market, Exchange
 
 
 class RSIModel(RedisBaseModel):

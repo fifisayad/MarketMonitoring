@@ -1,5 +1,4 @@
-from ..enums.data_type import DataType
-from ..enums.market import Market
+from fifi.enums import Market, DataType
 
 
 def data_type_to_type(
