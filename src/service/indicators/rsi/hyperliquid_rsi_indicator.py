@@ -1,22 +1,22 @@
-import logging
 import time
 import numpy as np
 
 from numba import njit
 from typing import Any, Dict, Set, Union
 from aredis_om.model.model import NotFoundError
-from fifi import RedisSubscriber, log_exception
 from multiprocessing import Queue
+
+from fifi import RedisSubscriber, log_exception
+from fifi.enums import Exchange, Market
+from fifi.helpers.get_logger import LoggerFactory
+
 from ..base import BaseIndicator
-from ....enums.exchange import Exchange
-from ....enums.market import Market
-from ....enums.data_type import DataType
 from ....models.rsi_model import RSIModel
 from ....helpers.hyperliquid_helpers import *
 from ...info.hyperliquid_info import HyperliquidInfo
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = LoggerFactory().get(__name__)
 
 
 class HyperLiquidRSIIndicator(BaseIndicator):

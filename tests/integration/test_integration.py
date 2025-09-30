@@ -4,15 +4,12 @@ import pytest
 from dotenv import load_dotenv
 from fastapi.encoders import jsonable_encoder
 from httpx import ASGITransport, AsyncClient
-from fifi import RedisSubscriber, GetLogger
-
-from src.common.schemas import MarketSubscriptionRequestSchema
-from src.enums.data_type import DataType
-from src.enums.exchange import Exchange
-from src.enums.market import Market
+from fifi import RedisSubscriber, LoggerFactory
+from fifi.enums import DataType, Exchange, Market
+from fifi.schema import MarketSubscriptionRequestSchema
 from main import app
 
-LOGGER = GetLogger().get()
+LOGGER = LoggerFactory().get(__name__)
 load_dotenv()
 
 

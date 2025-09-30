@@ -2,10 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Set
 
 from fifi import RedisPublisher
-
-from ...enums.data_type import DataType
-from ...enums.exchange import Exchange
-from ...enums.market import Market
+from fifi.enums import Exchange, Market, DataType
 
 
 class BaseExchangeWorker(ABC):

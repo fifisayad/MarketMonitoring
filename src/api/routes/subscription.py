@@ -1,22 +1,20 @@
-import logging
 import traceback
-from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, Depends, HTTPException, FastAPI
-
-
-from ...service.info.info_factory import get_info
-from .deps import create_manager
-
-from ...common.schemas import (
+from contextlib import asynccontextmanager
+from fifi.helpers.get_logger import LoggerFactory
+from fifi.schema import (
     MarketSubscriptionRequestSchema,
     IndicatorSubscriptionRequest,
     SubscriptionResponseSchema,
     CandleResponseSchema,
-    CandleSubscriptionRequestSchema,
 )
-from ...service.manager import Manager
 
-LOGGER = logging.getLogger(__name__)
+from ...service.info.info_factory import get_info
+from ...service.manager import Manager
+from .deps import create_manager
+
+LOGGER = LoggerFactory().get(__name__)
 
 
 # ----
@@ -46,7 +44,7 @@ router = APIRouter(lifespan=lifespan)
 # ----
 def handle_exception(exc: Exception) -> HTTPException:
     """Convert any exception into HTTPException with traceback for debugging."""
-    LOGGER.error("API error: %s", exc, exc_info=True)
+    LOGGER.error("API Error: %s", exc, exc_info=True)
     return HTTPException(status_code=500, detail=traceback.format_exc())
 
 
@@ -94,13 +92,12 @@ async def subscribe_indicator(
 # info endpoint
 # ----
 @router.post("/candle", response_model=CandleResponseSchema)
-async def candle(request: CandleSubscriptionRequestSchema) -> CandleResponseSchema:
+async def candle(request: MarketSubscriptionRequestSchema) -> CandleResponseSchema:
     try:
         info = get_info(request.exchange)
         candles = info.candle_snapshot(
             market=request.market,
             timeframe=request.timeframe,
-
         )
         return CandleResponseSchema(type=request.data_type, response=candles)
     except Exception as e:

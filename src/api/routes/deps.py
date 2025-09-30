@@ -1,5 +1,4 @@
-from fastapi import Depends
-from ...enums.exchange import Exchange
+from fifi.enums import Exchange
 from ...service.manager import Manager
 from ...service.info.info_factory import get_info
 
