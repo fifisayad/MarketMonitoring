@@ -39,12 +39,15 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         base_delay = 5
         max_delay = 60
 
-        while attempt < 5:
+        while True:
             try:
                 self.info = Info(self.base_url)
                 break
             except Exception as e:
                 attempt += 1
+                # if it couldn't start, it raise exception....
+                if attempt == 5:
+                    raise
                 delay = min(max_delay, base_delay * (2 ** (attempt - 1)))
                 delay += random.uniform(0, delay / 2)
                 LOGGER.error(
