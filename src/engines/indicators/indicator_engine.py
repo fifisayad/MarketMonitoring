@@ -38,6 +38,7 @@ class IndicatorEngine(BaseEngine):
 
     @log_exception()
     async def execute(self) -> None:
+        LOGGER.info(f"{self.name} is executing...")
         while True:
             close_prices = self.monitor_repo.get_close_prices(self.market)
             low_prices = self.monitor_repo.get_low_prices(self.market)
