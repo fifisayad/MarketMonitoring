@@ -1,6 +1,6 @@
-from typing import List
+from typing import Annotated, List
 from dotenv import load_dotenv
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
 from pydantic import field_validator
 from fifi.enums import Exchange, Market
 
@@ -10,14 +10,15 @@ class Settings(BaseSettings):
         load_dotenv()
         super().__init__()
 
-    EXCHANGES: List[Exchange] = [Exchange.HYPERLIQUID]
+    EXCHANGES: Annotated[List[Exchange], NoDecode] = [Exchange.HYPERLIQUID]
 
     @field_validator("EXCHANGES", mode="before")
     @classmethod
     def decode_exchanges(cls, v: str) -> List[Exchange]:
+        print(v)
         return [Exchange(x) for x in v.split(",")]
 
-    MARKETS: List[Market] = [Market.BTCUSD_PERP]
+    MARKETS: Annotated[List[Market], NoDecode] = [Market.BTCUSD_PERP]
 
     @field_validator("MARKETS", mode="before")
     @classmethod
@@ -26,3 +27,4 @@ class Settings(BaseSettings):
 
     RESTART_TIME_THRESHOLD: float = 10
     LOG_LEVEL: str = "INFO"
+    model_config = {"env_file": ".env", "env_nested_delimiter": "__", "extra": "allow"}
