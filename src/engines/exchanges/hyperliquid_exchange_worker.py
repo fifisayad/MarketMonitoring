@@ -9,7 +9,7 @@ from hyperliquid.info import Info
 from hyperliquid.utils import constants
 
 from fifi import log_exception, LoggerFactory, MonitoringSHMRepository
-from fifi.enums import Exchange, Market
+from fifi.enums import Candle, Exchange, Market
 
 from .base import BaseExchangeWorker
 from ...common.settings import Settings
@@ -164,23 +164,44 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self.last_update_timestamp = time.time()
 
     def _ingest_trade(self, trade: dict):
-        last_candle_time = self.monitoring_repo.get_current_candle(self.market)
+        price = float(trade["px"])
+        size = float(trade["sz"])
+        last_candle_time = self.monitoring_repo.get_current_candle_time(self.market)
         self.monitoring_repo.set_last_trade(self.market, float(trade["px"]))
         if trade["time"] - (60 * 1000) > last_candle_time:
             self.init_close_prices(trade["time"])
         if trade["time"] >= self.next_candle_time:
-            self.monitoring_repo.close_prices[self.market_row_index] = np.roll(
-                self.monitoring_repo.close_prices[self.market_row_index], -1
+            self.monitoring_repo.candles[self.market_row_index] = np.roll(
+                self.monitoring_repo.candles[self.market_row_index],
+                shift=-1,
+                axis=2,
             )
-            self.monitoring_repo.set_current_candle(self.market, self.next_candle_time)
+            self.monitoring_repo.set_current_candle_time(
+                self.market, self.next_candle_time
+            )
             self.current_candle_time = self.next_candle_time
             self.next_candle_time = self.current_candle_time + (60 * 1000)
-            self.monitoring_repo.set_current_candle(
-                self.market, self.current_candle_time
-            )
-        self.monitoring_repo.close_prices[self.market_row_index][-1] = float(
-            float(trade["px"])
-        )
+            self.monitoring_repo.candles[self.market_row_index, :, -1] = price
+            self.monitoring_repo.candles[self.market_row_index][Candle.VOL][-1] = size
+            return
+        self.monitoring_repo.candles[self.market_row_index][Candle.CLOSE.value][
+            -1
+        ] = price
+        if (
+            price
+            < self.monitoring_repo.candles[self.market_row_index][Candle.LOW.value][-1]
+        ):
+            self.monitoring_repo.candles[self.market_row_index][Candle.LOW.value][
+                -1
+            ] = price
+        if (
+            price
+            > self.monitoring_repo.candles[self.market_row_index][Candle.HIGH.value][-1]
+        ):
+            self.monitoring_repo.candles[self.market_row_index][Candle.HIGH.value][
+                -1
+            ] = price
+        self.monitoring_repo.candles[self.market_row_index][Candle.VOL.value] += size
 
     def init_close_prices(self, trade_time: int):
         trade_time = trade_time - (trade_time % (60 * 1000))
@@ -191,15 +212,41 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             endTime=trade_time,
         )
         candles_length = len(candles)
-        for i in range(self.monitoring_repo.close_prices_length):
-            self.monitoring_repo.close_prices[self.market_row_index][i] = float(
-                candles[candles_length - self.monitoring_repo.close_prices_length + i][
-                    "c"
-                ]
+        for i in range(self.monitoring_repo.candles_length):
+            self.monitoring_repo.candles[self.market_row_index][Candle.CLOSE.value][
+                i
+            ] = float(
+                candles[candles_length - self.monitoring_repo.candles_length + i]["c"]
+            )
+            self.monitoring_repo.candles[self.market_row_index][Candle.OPEN.value][
+                i
+            ] = float(
+                candles[candles_length - self.monitoring_repo.candles_length + i]["o"]
+            )
+            self.monitoring_repo.candles[self.market_row_index][Candle.HIGH.value][
+                i
+            ] = float(
+                candles[candles_length - self.monitoring_repo.candles_length + i]["h"]
+            )
+            self.monitoring_repo.candles[self.market_row_index][Candle.LOW.value][i] = (
+                float(
+                    candles[candles_length - self.monitoring_repo.candles_length + i][
+                        "l"
+                    ]
+                )
+            )
+            self.monitoring_repo.candles[self.market_row_index][Candle.VOL.value][i] = (
+                float(
+                    candles[candles_length - self.monitoring_repo.candles_length + i][
+                        "v"
+                    ]
+                )
             )
         self.current_candle_time = trade_time
         self.next_candle_time = self.current_candle_time + (60 * 1000)
-        self.monitoring_repo.set_current_candle(self.market, self.current_candle_time)
+        self.monitoring_repo.set_current_candle_time(
+            self.market, self.current_candle_time
+        )
         self.monitoring_repo.set_is_updated(self.market)
 
     @log_exception()
