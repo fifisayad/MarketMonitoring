@@ -10,9 +10,9 @@ class Settings(BaseSettings):
         load_dotenv()
         super().__init__()
 
-    EXCHANGES: Annotated[Exchange, NoDecode] = Exchange.HYPERLIQUID
+    EXCHANGE: Annotated[Exchange, NoDecode] = Exchange.HYPERLIQUID
 
-    @field_validator("EXCHANGES", mode="before")
+    @field_validator("EXCHANGE", mode="before")
     @classmethod
     def decode_exchanges(cls, v: str) -> Exchange:
         return Exchange(v)
