@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     EXCHANGES: List[Exchange] = [Exchange.HYPERLIQUID]
 
-    @field_validator("Exchanges", mode="before")
+    @field_validator("EXCHANGES", mode="before")
     @classmethod
     def decode_exchanges(cls, v: str) -> List[Exchange]:
         return [Exchange(x) for x in v.split(",")]
