@@ -65,4 +65,7 @@ class Manager:
             LOGGER.info("Cleanup before exit...")
             LOGGER.info("closing shared memory repo...")
             self.monitor_repo.close()
+            LOGGER.info("stopping exchange workers...")
+            for market, ex_worker in self.exchange_workers.items():
+                ex_worker.stop()
             print("Exited cleanly.")
