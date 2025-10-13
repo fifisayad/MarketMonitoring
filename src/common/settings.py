@@ -10,13 +10,12 @@ class Settings(BaseSettings):
         load_dotenv()
         super().__init__()
 
-    EXCHANGES: Annotated[List[Exchange], NoDecode] = [Exchange.HYPERLIQUID]
+    EXCHANGES: Annotated[Exchange, NoDecode] = Exchange.HYPERLIQUID
 
     @field_validator("EXCHANGES", mode="before")
     @classmethod
-    def decode_exchanges(cls, v: str) -> List[Exchange]:
-        print(v)
-        return [Exchange(x) for x in v.split(",")]
+    def decode_exchanges(cls, v: str) -> Exchange:
+        return Exchange(v)
 
     MARKETS: Annotated[List[Market], NoDecode] = [Market.BTCUSD_PERP]
 
