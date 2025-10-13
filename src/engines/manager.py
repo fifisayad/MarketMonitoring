@@ -1,3 +1,5 @@
+import sys, signal
+import time
 from typing import Dict
 
 from fifi import MonitoringSHMRepository
@@ -11,6 +13,14 @@ from .indicators.indicator_engine import IndicatorEngine
 
 
 LOGGER = LoggerFactory().get(__name__)
+
+shutdown_flag = False
+
+
+def handle_signal(signum, frame):
+    global shutdown_flag
+    print(f"Received signal {signum}, shutting down gracefully...")
+    shutdown_flag = True
 
 
 class Manager:
@@ -37,3 +47,22 @@ class Manager:
             self.indactor_engines[market] = IndicatorEngine(
                 market=market, monitor_repo=self.monitor_repo
             )
+            self.indactor_engines[market].start()
+
+        self.watch()
+
+    def watch(self):
+        # Register handlers for SIGTERM (docker stop) and SIGINT (Ctrl+C)
+        signal.signal(signal.SIGTERM, handle_signal)
+        signal.signal(signal.SIGINT, handle_signal)
+        try:
+            while not shutdown_flag:
+                # Your main loop logic
+                time.sleep(5)
+        except Exception as e:
+            LOGGER.error(f"Error: {e}")
+        finally:
+            LOGGER.info("Cleanup before exit...")
+            LOGGER.info("closing shared memory repo...")
+            self.monitor_repo.close()
+            print("Exited cleanly.")
