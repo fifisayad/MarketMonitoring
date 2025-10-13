@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     def decode_markets(cls, v: str) -> list[Market]:
         return [Market(x) for x in v.split(",")]
 
+    @field_validator("INDICATORS_PERIODS", mode="before")
+    @classmethod
+    def decode_indicator_periods(cls, v: str) -> list[int]:
+        return [int(x) for x in v.split(",")]
+
     RESTART_TIME_THRESHOLD: float = 10
     LOG_LEVEL: str = "INFO"
     model_config = {"env_file": ".env", "env_nested_delimiter": "__", "extra": "allow"}
