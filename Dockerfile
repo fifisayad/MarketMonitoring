@@ -7,5 +7,4 @@ RUN pip install -r requirements.txt
 COPY . /app
 WORKDIR /app
 
-EXPOSE 1844
 RUN chmod a+x run.sh
