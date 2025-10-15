@@ -11,3 +11,10 @@ services:
     volumes:
       - .env:/app/.env
       - ./logs/:/app/logs
+    networks:
+      - epicure
+
+networks:
+  epicure:
+    external: true
+
