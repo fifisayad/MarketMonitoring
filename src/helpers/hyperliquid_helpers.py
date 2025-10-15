@@ -14,6 +14,13 @@ def data_type_to_type(
         raise ValueError(f"there is no data type fo {data_type.value} in hyperliquid")
 
 
+def key_to_subscribe(market: Market) -> str:
+    if market.is_perptual():
+        return "coin"
+    else:
+        return "name"
+
+
 def market_to_hyper_market(market: Market) -> str:
     if market == Market.BTCUSD:
         return "BTC/USDC"

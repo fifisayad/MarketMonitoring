@@ -1,38 +1,60 @@
-# Introduction
+# Market Monitoring Service
 
-This service is designed to provide market data (trading pairs) from various cryptocurrency exchanges. The architecture is built to be independent and decoupled from other services to ensure scalability, flexibility, and maintainability.
+## 🧭 Introduction
 
-Upon receiving a subscription signal from external services, the system initializes a dedicated data stream for the requested exchange and publishes real-time market data to a specific communication channel.
+This service provides **real-time market data** for trading pairs from the **Hyperliquid exchange**.  
+It is designed to be **lightweight**, **reliable**, and **modular**, enabling seamless integration with other systems through **Python shared memory**.
 
-![Service Architecture Sketch](assets/monitoring-diagram.png)
+The system continuously monitors market updates at a **1-minute ("1m") interval**, ensuring stable and accurate statistics that can be accessed by connected processes.
 
-# Service Design
+---
 
-Based on the provided sketch, the service consists of three main components:
+## ⚙️ Service Design
 
-### 1. API Gateway  
-- Receives subscription signals from external services.
-- Acts as the main entry point to the system.
+The service is built with simplicity and reliability in mind, focusing on efficient configuration and stable data delivery.
 
-### 2. Core Service  
-- Initializes per-exchange services to fetch live market data.
-- Handles multiple exchanges concurrently using asynchronous programming (`asyncio`).
+### 1. Configuration-Based Initialization  
+- The system is configured via a lightweight configuration file or environment variables.  
+- No API gateway or dynamic subscriptions are required — configuration defines all monitored pairs and parameters.
 
-### 3. Channel Manager  
-- Manages real-time data channels using Redis Pub/Sub.
-- Publishes market data into specific channels for consumption.
+### 2. Core Data Engine  
+- Connects exclusively to the **Hyperliquid** exchange.  
+- Collects live market data at a **1-minute interval**.  
+- Uses asynchronous processing (`asyncio`) for efficient and consistent updates.  
+- Maintains reliability through reconnection and validation mechanisms.
+
+### 3. Shared Memory Integration  
+- Publishes live market data and statistics into **Python Shared Memory** segments.  
+- Other local services or analytics modules can directly read from shared memory for **fast, low-latency data access**.  
+- Eliminates dependency on external message brokers (like Redis) while improving performance and stability.
+
+---
 
 ## 🛠️ Tech Stack
 
-| Component        | Technology            | Description                                                                 |
-|------------------|------------------------|-----------------------------------------------------------------------------|
-| **API Layer**     | [FastAPI](https://fastapi.tiangolo.com/) | High-performance Python framework with async support and automatic docs     |
-| **Concurrency**   | `asyncio` / `anyio`    | Handles concurrent exchange data collection efficiently                     |
-| **Data Channels** | [Redis Pub/Sub](https://redis.io/docs/manual/pubsub/) | Lightweight real-time messaging for broadcasting data streams               |
-| **Language**      | Python 3.10+           | Main programming language across all components                             |
-| **Other Tools**| Docker, Pydantic | For containerization, validation, and monitoring                             |
+| Component            | Technology / Tool             | Description                                                                 |
+|----------------------|-------------------------------|-----------------------------------------------------------------------------|
+| **Exchange**         | [Hyperliquid](https://hyperliquid.xyz/) | Supported exchange for real-time data collection                            |
+| **Concurrency**      | `asyncio` / `anyio`           | High-performance asynchronous event loop for data processing                |
+| **Data Sharing**     | Python Shared Memory (`multiprocessing.shared_memory`) | Fast and lightweight interprocess communication                             |
+| **Language**         | Python 3.10+                  | Core implementation language                                                |
+| **Other Tools**      | Docker, Pydantic              | Containerization, configuration validation, and deployment management       |
+
+---
+
+## 🧩 Key Features
+
+- ✅ **Single Exchange Support** — Focused on **Hyperliquid** for optimized stability  
+- 🕐 **Fixed Interval** — Data updates every **1 minute**  
+- 💾 **Shared Memory Integration** — Zero-copy data sharing between local services  
+- 🔄 **Reliable and Stable Updates** — Automatic reconnection and error handling  
+- ⚙️ **Configuration-Based Setup** — No API or external trigger required  
+
+---
 
 ## 📄 License
 
 This project is licensed under the **MIT License**.  
 See the [LICENSE](LICENSE) file for details.
+
+

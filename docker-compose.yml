@@ -5,10 +5,16 @@ services:
   market-monitoring:
     container_name: market-monitoring
     build: .
-    ports:
-      - "1844:1844"
     entrypoint: ["/bin/sh", "-c", "exec ./run.sh"]
+    ipc: host
     tty: true
     volumes:
       - .env:/app/.env
       - ./logs/:/app/logs
+    networks:
+      - epicure
+
+networks:
+  epicure:
+    external: true
+
