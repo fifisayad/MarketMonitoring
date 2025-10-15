@@ -182,7 +182,9 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             self.current_candle_time = self.next_candle_time
             self.next_candle_time = self.current_candle_time + (60 * 1000)
             self.monitoring_repo.candles[self.market_row_index, :, -1] = price
-            self.monitoring_repo.candles[self.market_row_index][Candle.VOL][-1] = size
+            self.monitoring_repo.candles[self.market_row_index][Candle.VOL.value][
+                -1
+            ] = size
             return
         self.monitoring_repo.candles[self.market_row_index][Candle.CLOSE.value][
             -1
