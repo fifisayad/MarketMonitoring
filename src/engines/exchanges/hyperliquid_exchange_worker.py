@@ -174,7 +174,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             self.monitoring_repo.candles[self.market_row_index] = np.roll(
                 self.monitoring_repo.candles[self.market_row_index],
                 shift=-1,
-                axis=2,
+                axis=1,
             )
             self.monitoring_repo.set_current_candle_time(
                 self.market, self.next_candle_time
