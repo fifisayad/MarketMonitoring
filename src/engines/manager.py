@@ -62,13 +62,14 @@ class Manager:
         except Exception as e:
             LOGGER.error(f"Error: {e}")
         finally:
-            LOGGER.info("Cleanup before exit...")
-            LOGGER.info("closing shared memory repo...")
-            self.monitor_repo.close()
             LOGGER.info("stopping indicator engines....")
             for market, engine in self.indactor_engines.items():
                 engine.stop()
             LOGGER.info("stopping exchange workers...")
             for market, ex_worker in self.exchange_workers.items():
                 ex_worker.stop()
+
+            LOGGER.info("Cleanup before exit...")
+            LOGGER.info("closing shared memory repo...")
+            self.monitor_repo.close()
             LOGGER.info("Exited cleanly.")

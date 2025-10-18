@@ -132,10 +132,14 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                 self._ws.close()
         finally:
             self._ws = None
+            if self._ws_thread:
+                self._ws_thread.join()
             self._ws_thread = None
 
     def _spawn_ws(self) -> None:
         # internal reconnect helper
+        if self._ws_thread:
+            self._ws_thread.join()
         t = threading.Thread(target=self._run_ws_forever, name="HL-WS", daemon=True)
         self._ws_thread = t
         t.start()
