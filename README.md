@@ -41,7 +41,36 @@ The service is built with simplicity and reliability in mind, focusing on effici
 | **Other Tools**      | Docker, Pydantic              | Containerization, configuration validation, and deployment management       |
 
 ---
+## 🚢 Live Commands
+- for reading last candles of markets and its stats
+```shell
+python read.py
 
+or
+
+docker exec -it market-monitoring python read.py
+
+```
+
+- for reading based on market
+```shell
+python read.py --market btcusd_perp
+
+or
+
+docker exec -it market-monitoring python read.py --market btcusd_perp
+
+```
+- for reading based on stat
+```shell
+python read.py --stat ATR14
+
+or
+
+docker exec -it market-monitoring python read.py --stat RSI5
+
+```
+---
 ## 🧩 Key Features
 
 - ✅ **Single Exchange Support** — Focused on **Hyperliquid** for optimized stability  
