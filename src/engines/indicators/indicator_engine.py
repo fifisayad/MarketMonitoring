@@ -47,7 +47,7 @@ class IndicatorEngine(BaseEngine):
             for period in self.periods:
                 rsi_val = round(_rsi_numba(close_prices, period), 2)
                 atr_val = _atr_numba(high_prices, low_prices, close_prices, period)
-                hma_val = _hma_numba(close_prices, 21)  # benchmark value for hma
+                hma_val = _hma_numba(close_prices, 55)  # benchmark value for hma
 
                 self.monitor_repo.set_stat(
                     self.market, MarketStat[f"RSI{period}"], rsi_val
