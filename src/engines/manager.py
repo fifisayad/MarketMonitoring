@@ -58,6 +58,13 @@ class Manager:
         try:
             while not shutdown_flag:
                 # Your main loop logic
+                for market, ex_worker in self.exchange_workers.items():
+                    if (
+                        time.time() - ex_worker.last_update_timestamp
+                        > self.settings.RESTART_TIME_THRESHOLD
+                    ):
+                        LOGGER.info(f"reset {ex_worker.exchange.value}-{market.name}")
+                        ex_worker.reset()
                 time.sleep(5)
         except Exception as e:
             LOGGER.error(f"Error: {e}")

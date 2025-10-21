@@ -31,5 +31,5 @@ class Settings(BaseSettings):
     def decode_indicator_periods(cls, v: str) -> list[int]:
         return [int(x) for x in v.split(",")]
 
-    RESTART_TIME_THRESHOLD: float = 10
+    RESTART_TIME_THRESHOLD: float = 20
     LOG_LEVEL: str = "INFO"

@@ -17,6 +17,8 @@ from ...helpers.hyperliquid_helpers import *
 
 
 LOGGER = LoggerFactory().get(__name__)
+RECONNECT_MIN_DELAY = 2
+RECONNECT_MAX_DELAY = 60
 
 
 class HyperliquidExchangeWorker(BaseExchangeWorker):
@@ -44,12 +46,13 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             self.base_url = constants.MAINNET_API_URL
             self.ws_url = "wss://api.hyperliquid.xyz/ws"
 
-        self.last_update_timestamp = 0
-
         # WS state
         self._ws: Optional[websocket.WebSocketApp] = None
         self._ws_thread: Optional[threading.Thread] = None
-        self._ws_stop = threading.Event()
+        self._ws_stop = False
+        self._ws_reset = False
+        self.last_update_timestamp = time.time()
+        self.reconnect_delay = RECONNECT_MIN_DELAY
 
         # candle time
         self.current_candle_time = 0
@@ -58,97 +61,86 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
     @log_exception()
     def start(self):
         self.info = Info(self.base_url, skip_ws=True)
-        self.start_ws()
+        self._ws_stop = False
+        self._ws_thread = threading.Thread(target=self.run_forever, daemon=True)
+        self._ws_thread.start()
         LOGGER.info(f"create info and websocket for {self.name}")
 
     @log_exception()
-    def start_ws(
-        self,
-    ) -> None:
-        """Start the websocket and subscribe to user channels.
-
-        Stores `orderUpdates` and `userFills` keyed by `oid`.
-        """
-
-        if self._ws_thread and self._ws_thread.is_alive():
-            return
-
-        def _on_open(_: websocket.WebSocketApp) -> None:
+    def run_forever(self) -> None:
+        print("HERE")
+        while not self._ws_stop:
             try:
-                LOGGER.info(f"opening ws to the {self.name} ...")
-                self._send_ws(
-                    {
-                        "method": "subscribe",
-                        "subscription": {
-                            "type": "trades",
-                            key_to_subscribe(self.market): market_to_hyper_market(
-                                self.market
-                            ),
-                        },
-                    }
+                self._ws = websocket.WebSocketApp(
+                    self.ws_url,
+                    on_open=self._on_open,  # type: ignore
+                    on_message=self._on_message,  # type: ignore
+                    on_error=self._on_error,  # type: ignore
+                    on_close=self._on_close,  # type: ignore
                 )
-                LOGGER.info(f"subscribe trades in ws...")
-            except Exception as e:  # pragma: no cover
-                LOGGER.error(str(e))
-                raise
+                self._ws.run_forever(ping_interval=20, ping_timeout=10)
+            except Exception as e:
+                LOGGER.error("Fatal websocket error:", e)
 
-        def _on_message(_: websocket.WebSocketApp, message: str) -> None:
-            try:
-                self._handle_ws_message(json.loads(message))
-            except Exception as e:  # pragma: no cover
-                LOGGER.error(str(e))
+            LOGGER.info(f"Reconnecting in {self.reconnect_delay}s...")
+            time.sleep(self.reconnect_delay)
+            self.reconnect_delay = min(self.reconnect_delay * 2, RECONNECT_MAX_DELAY)
 
-        def _on_error(
-            _: websocket.WebSocketApp, error: Any
-        ) -> None:  # pragma: no cover
-            LOGGER.error(f"ws: {str(error)}")
-
-        def _on_close(
-            _: websocket.WebSocketApp, status_code: int, msg: str
-        ) -> None:  # pragma: no cover
-            self.monitoring_repo.clear_is_updated(self.market)
-            # Auto-reconnect loop
-            if not self._ws_stop.is_set():
-                time.sleep(1.0)
-                self._spawn_ws()
-
-        self._ws = websocket.WebSocketApp(
-            self.ws_url,
-            on_open=_on_open,  # type: ignore
-            on_message=_on_message,  # type: ignore
-            on_error=_on_error,  # type: ignore
-            on_close=_on_close,  # type: ignore
-        )
-        self._ws_stop.clear()
-        self._ws_thread = threading.Thread(
-            target=self._run_ws_forever, name="HL-WS", daemon=True
-        )
-        self._ws_thread.start()
-
-    def stop_ws(self) -> None:
-        self._ws_stop.set()
+    def _on_open(self, ws: websocket.WebSocketApp) -> None:
         try:
-            if self._ws:
-                self._ws.close()
-        finally:
-            self._ws = None
-            self._ws_thread = None
+            LOGGER.info(f"opening ws to the {self.name} ...")
+            self._send_ws(
+                {
+                    "method": "subscribe",
+                    "subscription": {
+                        "type": "trades",
+                        key_to_subscribe(self.market): market_to_hyper_market(
+                            self.market
+                        ),
+                    },
+                }
+            )
+            LOGGER.info(f"subscribe trades in ws...")
+            self.last_update_timestamp = time.time()
+            self.reconnect_delay = RECONNECT_MIN_DELAY
+            self._ws_reset = False
+        except Exception as e:  # pragma: no cover
+            LOGGER.error(str(e))
+            raise
 
-    def _spawn_ws(self) -> None:
-        # internal reconnect helper
-        t = threading.Thread(target=self._run_ws_forever, name="HL-WS", daemon=True)
-        self._ws_thread = t
-        t.start()
+    def _on_message(self, ws: websocket.WebSocketApp, message: str) -> None:
+        try:
+            self.last_update_timestamp = time.time()
+            self._handle_ws_message(json.loads(message))
+        except Exception as e:  # pragma: no cover
+            LOGGER.error(str(e))
 
-    def _run_ws_forever(self) -> None:
-        assert self._ws is not None
-        # Enable built-in ping/pong to keep the connection alive
-        self._ws.run_forever(ping_interval=20, ping_timeout=10)
+    def _on_error(
+        self, ws: websocket.WebSocketApp, error: Any
+    ) -> None:  # pragma: no cover
+        LOGGER.error(f"ws: {str(error)}")
 
     def _send_ws(self, obj: Dict[str, Any]) -> None:
         if not self._ws:
             raise RuntimeError("WebSocket is not started. Call start_ws().")
         self._ws.send(json.dumps(obj))
+
+    def _on_close(
+        self, ws: websocket.WebSocketApp, status_code: int, msg: str
+    ) -> None:  # pragma: no cover
+        self.monitoring_repo.clear_is_updated(self.market)
+        LOGGER.error(f"closed ws: {status_code=} {msg=}")
+
+    def stop_ws(self) -> None:
+        self._ws_stop = True
+        self.close_ws()
+
+    def close_ws(self) -> None:
+        try:
+            if self._ws:
+                self._ws.close()
+        except:
+            pass
 
     @log_exception()
     def _handle_ws_message(self, msg: Dict[str, Any]) -> None:
@@ -250,6 +242,11 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             self.market, self.current_candle_time
         )
         self.monitoring_repo.set_is_updated(self.market)
+
+    @log_exception()
+    def reset(self):
+        if not self._ws_reset:
+            self.close_ws()
 
     @log_exception()
     def stop(self):

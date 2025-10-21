@@ -25,3 +25,8 @@ class BaseExchangeWorker(ABC):
     def stop(self):
         """Cleanup tasks and shutdown logic"""
         pass
+
+    @abstractmethod
+    def reset(self):
+        """Reset service"""
+        pass
