@@ -5,6 +5,7 @@ from fifi.enums import Market, MarketStat
 from ...common.settings import Settings
 from .calcs.rsi import _rsi_numba
 from .calcs.atr import _atr_numba
+from .calcs.hma import _hma_numba
 
 LOGGER = LoggerFactory().get(__name__)
 
@@ -46,6 +47,7 @@ class IndicatorEngine(BaseEngine):
             for period in self.periods:
                 rsi_val = round(_rsi_numba(close_prices, period), 2)
                 atr_val = _atr_numba(high_prices, low_prices, close_prices, period)
+                hma_val = _hma_numba(close_prices, 55)  # benchmark value for hma
 
                 self.monitor_repo.set_stat(
                     self.market, MarketStat[f"RSI{period}"], rsi_val
@@ -53,6 +55,7 @@ class IndicatorEngine(BaseEngine):
                 self.monitor_repo.set_stat(
                     self.market, MarketStat[f"ATR{period}"], atr_val
                 )
+                self.monitor_repo.set_stat(self.market, MarketStat["HMA"], hma_val)
             await asyncio.sleep(0.01)
 
     async def postpare(self):
