@@ -68,7 +68,6 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
 
     @log_exception()
     def run_forever(self) -> None:
-        print("HERE")
         while not self._ws_stop:
             try:
                 self._ws = websocket.WebSocketApp(
