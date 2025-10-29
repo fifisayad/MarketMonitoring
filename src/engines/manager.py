@@ -61,10 +61,16 @@ class Manager:
                 for market, ex_worker in self.exchange_workers.items():
                     if (
                         time.time() - ex_worker.last_update_timestamp
-                        > self.settings.RESTART_TIME_THRESHOLD
+                        > self.settings.RESET_TIME_THRESHOLD
                     ):
                         LOGGER.info(f"reset {ex_worker.exchange.value}-{market.name}")
                         ex_worker.reset()
+                    if (
+                        time.time() - ex_worker.last_update_timestamp
+                        > self.settings.HARD_RESET_TIME_THRESHOLD
+                    ):
+                        ex_worker.stop()
+                        ex_worker.start()
                 time.sleep(5)
         except Exception as e:
             LOGGER.error(f"Error: {e}")

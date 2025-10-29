@@ -18,7 +18,7 @@ from ...helpers.hyperliquid_helpers import *
 
 LOGGER = LoggerFactory().get(__name__)
 RECONNECT_MIN_DELAY = 2
-RECONNECT_MAX_DELAY = 60
+RECONNECT_MAX_DELAY = 20
 
 
 class HyperliquidExchangeWorker(BaseExchangeWorker):
@@ -129,10 +129,6 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
     ) -> None:  # pragma: no cover
         self.monitoring_repo.clear_is_updated(self.market)
         LOGGER.error(f"closed ws: {status_code=} {msg=}")
-
-    def stop_ws(self) -> None:
-        self._ws_stop = True
-        self.close_ws()
 
     def close_ws(self) -> None:
         try:
@@ -251,5 +247,11 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
     @log_exception()
     def stop(self):
         LOGGER.info(f"shutting down {self.name} exchange worker....")
-        self.stop_ws()
+        self._ws_stop = True
+        self.close_ws()
+        if self._ws:
+            self._ws.keep_running = False
+            self._ws = None
+        self._ws_thread = None
+        self.reconnect_delay = RECONNECT_MIN_DELAY
         LOGGER.info(f"{self.name} exchange worker is closed")
