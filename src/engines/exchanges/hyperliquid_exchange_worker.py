@@ -138,6 +138,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         try:
             if self._ws:
                 self._ws.close()
+                self._ws_reset = True
         except:
             pass
 
