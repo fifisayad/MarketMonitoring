@@ -32,7 +32,7 @@ def _hma_numba(prices: np.ndarray, period: int) -> float:
 
     for i in range(length):
         end = i + 1
-        start_half = max(0, end - (period // 2) + 1)
+        start_half = max(0, end - (period // 2) - 1)
         start_full = max(0, end - period)
         wma_half[i] = wma_kahan(prices[start_half:end])
         wma_full[i] = wma_kahan(prices[start_full:end])
