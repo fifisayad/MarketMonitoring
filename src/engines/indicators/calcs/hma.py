@@ -32,7 +32,7 @@ def _hma_numba(prices: np.ndarray, period: int) -> float:
 
     for i in range(length):
         end = i + 1
-        start_half = max(0, end - period // 2)
+        start_half = max(0, end - (period // 2) + 1)
         start_full = max(0, end - period)
         wma_half[i] = wma_kahan(prices[start_half:end])
         wma_full[i] = wma_kahan(prices[start_full:end])
@@ -42,17 +42,4 @@ def _hma_numba(prices: np.ndarray, period: int) -> float:
 
     # Step 4: HMA = WMA of last hma_period valid values
     hma_period = int(np.sqrt(period))
-
-    # find last hma_period non-NaN values
-    count = 0
-    temp = np.empty(hma_period, dtype=np.float64)
-    for i in range(length - 1, -1, -1):
-        if not np.isnan(diff[i]):
-            temp[hma_period - 1 - count] = diff[i]
-            count += 1
-            if count == hma_period:
-                break
-
-    if count < hma_period:
-        return np.nan  # not enough data
-    return wma_kahan(temp)
+    return wma_kahan(diff[-hma_period:])
