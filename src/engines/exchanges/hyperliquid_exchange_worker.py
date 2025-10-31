@@ -81,7 +81,9 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             except Exception as e:
                 LOGGER.error("Fatal websocket error:", e)
 
-            LOGGER.info(f"Reconnecting in {self.reconnect_delay}s...")
+            LOGGER.info(
+                f"{self.market.value}: Reconnecting in {self.reconnect_delay}s..."
+            )
             time.sleep(self.reconnect_delay)
             self.reconnect_delay = min(self.reconnect_delay * 2, RECONNECT_MAX_DELAY)
 
@@ -99,7 +101,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                     },
                 }
             )
-            LOGGER.info(f"subscribe trades in ws...")
+            LOGGER.info(f"{self.market.value}: subscribe trades in ws...")
             self.last_update_timestamp = time.time()
             self.reconnect_delay = RECONNECT_MIN_DELAY
             self._ws_reset = False
@@ -121,14 +123,16 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
 
     def _send_ws(self, obj: Dict[str, Any]) -> None:
         if not self._ws:
-            raise RuntimeError("WebSocket is not started. Call start_ws().")
+            raise RuntimeError(
+                f"{self.market.value}: WebSocket is not started. Call start_ws()."
+            )
         self._ws.send(json.dumps(obj))
 
     def _on_close(
         self, ws: websocket.WebSocketApp, status_code: int, msg: str
     ) -> None:  # pragma: no cover
         self.monitoring_repo.clear_is_updated(self.market)
-        LOGGER.error(f"closed ws: {status_code=} {msg=}")
+        LOGGER.error(f"{self.market.value}: closed ws: {status_code=} {msg=}")
 
     def close_ws(self) -> None:
         try:
