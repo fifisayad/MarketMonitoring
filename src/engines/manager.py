@@ -69,8 +69,16 @@ class Manager:
                         time.time() - ex_worker.last_update_timestamp
                         > self.settings.HARD_RESET_TIME_THRESHOLD
                     ):
+                        LOGGER.critical(
+                            f"HARD reset {ex_worker.exchange.value}-{market.name}"
+                        )
                         ex_worker.stop()
-                        ex_worker.start()
+                        self.exchange_workers[market] = create_exchange_worker(
+                            exchange=self.settings.EXCHANGE,
+                            market=market,
+                            monitoring_repo=self.monitor_repo,
+                        )
+                        self.exchange_workers[market].start()
                 time.sleep(5)
         except Exception as e:
             LOGGER.error(f"Error: {e}")
