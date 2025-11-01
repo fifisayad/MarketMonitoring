@@ -2,7 +2,7 @@ import sys, signal
 import time
 from typing import Dict
 
-from fifi import MonitoringSHMRepository
+from fifi import MonitoringSHMRepository, log_exception
 from fifi.helpers.get_logger import LoggerFactory
 from fifi.enums import Market
 
@@ -12,7 +12,7 @@ from .exchanges.base import BaseExchangeWorker
 from .indicators.indicator_engine import IndicatorEngine
 
 
-LOGGER = LoggerFactory().get(__name__)
+LOGGER = LoggerFactory().get("Manager")
 
 shutdown_flag = False
 
@@ -51,6 +51,7 @@ class Manager:
 
         self.watch()
 
+    @log_exception()
     def watch(self):
         # Register handlers for SIGTERM (docker stop) and SIGINT (Ctrl+C)
         signal.signal(signal.SIGTERM, handle_signal)
@@ -61,24 +62,28 @@ class Manager:
                 for market, ex_worker in self.exchange_workers.items():
                     if (
                         time.time() - ex_worker.last_update_timestamp
+                        > self.settings.HARD_RESET_TIME_THRESHOLD
+                    ):
+                        try:
+                            LOGGER.critical(
+                                f"HARD reset {ex_worker.exchange.value}-{market.name}"
+                            )
+                            ex_worker.stop()
+                            self.exchange_workers[market] = create_exchange_worker(
+                                exchange=self.settings.EXCHANGE,
+                                market=market,
+                                monitoring_repo=self.monitor_repo,
+                            )
+                            self.exchange_workers[market].start()
+                        except Exception as e:
+                            LOGGER.error(f"Error: {e}")
+
+                    elif (
+                        time.time() - ex_worker.last_update_timestamp
                         > self.settings.RESET_TIME_THRESHOLD
                     ):
                         LOGGER.info(f"reset {ex_worker.exchange.value}-{market.name}")
                         ex_worker.reset()
-                    if (
-                        time.time() - ex_worker.last_update_timestamp
-                        > self.settings.HARD_RESET_TIME_THRESHOLD
-                    ):
-                        LOGGER.critical(
-                            f"HARD reset {ex_worker.exchange.value}-{market.name}"
-                        )
-                        ex_worker.stop()
-                        self.exchange_workers[market] = create_exchange_worker(
-                            exchange=self.settings.EXCHANGE,
-                            market=market,
-                            monitoring_repo=self.monitor_repo,
-                        )
-                        self.exchange_workers[market].start()
                 time.sleep(5)
         except Exception as e:
             LOGGER.error(f"Error: {e}")
