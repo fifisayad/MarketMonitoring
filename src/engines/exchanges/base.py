@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
+from multiprocessing.synchronize import Event as EventType
+from multiprocessing import Event
 
 from fifi.enums import Exchange, Market
 from fifi import MarketDataRepository
@@ -12,9 +14,11 @@ class BaseExchangeWorker(ABC):
     intervals: List[intervals_type]
     _repo: MarketDataRepository
     last_update_timestamp: float
+    shutdown_event: EventType
 
     def __init__(self, market: Market):
         self.market = market
+        self.shutdown_event = Event()
 
     @abstractmethod
     def ignite(self):
