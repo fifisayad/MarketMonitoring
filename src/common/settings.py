@@ -25,13 +25,6 @@ class Settings(BaseSettings):
     def decode_markets(cls, v: str) -> list[Market]:
         return [Market(x) for x in v.split(",")]
 
-    INDICATORS_PERIODS: Annotated[list[int], NoDecode] = [5, 7, 14]
-
-    @field_validator("INDICATORS_PERIODS", mode="before")
-    @classmethod
-    def decode_indicator_periods(cls, v: str) -> list[int]:
-        return [int(x) for x in v.split(",")]
-
     INTERVALS: Annotated[list[intervals_type], NoDecode] = [
         "1m",
         "5m",
