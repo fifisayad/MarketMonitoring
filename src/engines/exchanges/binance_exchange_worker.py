@@ -11,5 +11,5 @@ class BinanceExchangeWorker(BaseExchangeWorker):
     def ignite(self):
         return super().ignite()
 
-    def shutdwon(self):
+    def shutdown(self):
         return super().shutdown()
