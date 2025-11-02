@@ -1,5 +1,6 @@
 from typing import Annotated, List
 from dotenv import load_dotenv
+from fifi.repository.shm.market_data_repository import intervals_type
 from pydantic_settings import BaseSettings, NoDecode
 from pydantic import field_validator
 from fifi.enums import Exchange, Market
@@ -30,6 +31,20 @@ class Settings(BaseSettings):
     @classmethod
     def decode_indicator_periods(cls, v: str) -> list[int]:
         return [int(x) for x in v.split(",")]
+
+    INTERVALS: Annotated[list[intervals_type], NoDecode] = [
+        "1m",
+        "5m",
+        "30m",
+        "1h",
+        "1d",
+        "1w",
+    ]
+
+    @field_validator("INTERVALS", mode="before")
+    @classmethod
+    def decode_intervals(cls, v: str) -> list[str]:
+        return [x for x in v.split(",")]
 
     RESET_TIME_THRESHOLD: float = 20
     HARD_RESET_TIME_THRESHOLD: float = 30
