@@ -1,16 +1,15 @@
 from .base import BaseExchangeWorker
 from fifi.enums import Exchange, Market
-from fifi import MonitoringSHMRepository
 
 
 class BinanceExchangeWorker(BaseExchangeWorker):
     exchange = Exchange.BINANCE
 
-    def __init__(self, market: Market, monitoring_repo: MonitoringSHMRepository):
-        super().__init__(market, monitoring_repo)
+    def __init__(self, market: Market):
+        super().__init__(market)
 
-    def start(self):
-        return super().start()
+    def ignite(self):
+        return super().ignite()
 
-    def stop(self):
-        return super().stop()
+    def shutdwon(self):
+        return super().shutdown()

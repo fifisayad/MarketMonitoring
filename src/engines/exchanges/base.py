@@ -1,32 +1,27 @@
 from abc import ABC, abstractmethod
-from typing import Set
+from typing import List
 
-from fifi.enums import Exchange, Market, DataType
-from fifi import MonitoringSHMRepository
+from fifi.enums import Exchange, Market
+from fifi import MarketDataRepository
+from fifi.repository.shm.market_data_repository import intervals_type
 
 
 class BaseExchangeWorker(ABC):
     exchange: Exchange
     market: Market
-    data_types: Set[DataType]
-    monitoring_repo: MonitoringSHMRepository
+    intervals: List[intervals_type]
+    _repo: MarketDataRepository
     last_update_timestamp: float
 
-    def __init__(self, market: Market, monitoring_repo: MonitoringSHMRepository):
+    def __init__(self, market: Market):
         self.market = market
-        self.monitoring_repo = monitoring_repo
 
     @abstractmethod
-    def start(self):
-        """Establish WebSocket connection"""
+    def ignite(self):
+        """start exchange worker engine procedure"""
         pass
 
     @abstractmethod
-    def stop(self):
+    def shutdown(self):
         """Cleanup tasks and shutdown logic"""
-        pass
-
-    @abstractmethod
-    def reset(self):
-        """Reset service"""
         pass
