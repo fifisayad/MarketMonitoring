@@ -1,4 +1,4 @@
-from typing import Annotated, List
+from typing import Annotated, List, Literal
 from dotenv import load_dotenv
 from fifi.repository.shm.market_data_repository import intervals_type
 from pydantic_settings import BaseSettings, NoDecode
@@ -11,6 +11,7 @@ class Settings(BaseSettings):
         load_dotenv()
         super().__init__()
 
+    EXCHANGE_NETWORK: Literal["main", "test"] = "main"
     EXCHANGE: Annotated[Exchange, NoDecode] = Exchange.HYPERLIQUID
 
     @field_validator("EXCHANGE", mode="before")
