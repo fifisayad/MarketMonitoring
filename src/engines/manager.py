@@ -37,7 +37,7 @@ class Manager:
                 exchange=self.settings.EXCHANGE,
                 market=market,
             )
-            self.exchange_workers[market].start()
+            self.exchange_workers[market].ignite()
 
         LOGGER.info("starting indicator engines for markets.....")
         for market in self.settings.MARKETS:
@@ -58,5 +58,5 @@ class Manager:
                 engine.stop()
             LOGGER.info("stopping exchange workers...")
             for market, ex_worker in self.exchange_workers.items():
-                ex_worker.stop()
+                ex_worker.shutdown()
             LOGGER.info("Exited cleanly.")

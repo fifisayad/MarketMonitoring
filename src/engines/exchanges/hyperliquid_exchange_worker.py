@@ -43,7 +43,7 @@ class HyperWS(BaseEngine):
         self._ws: Optional[websocket.WebSocketApp] = None
         self._ws_thread: Optional[threading.Thread] = None
         self._ws_reset = False
-        self.last_update_timestamp = time.time()
+        self.last_update_timestamp = 0
         self.reconnect_delay = RECONNECT_MIN_DELAY
 
     async def prepare(self):
@@ -268,6 +268,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
     @log_exception()
     def ignite(self):
         self.start()
+        time.sleep(len(self.settings.INTERVALS) * 65)
 
     @log_exception()
     async def prepare(self):
