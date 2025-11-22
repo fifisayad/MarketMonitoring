@@ -35,6 +35,8 @@ class IndicatorEngine(BaseEngine):
         self.market = market
         self.name = f"{self.market.value}_IndicatorEngine"
         self.settings = Settings()
+        self._repos = dict()
+        self._data_repos = dict()
 
     @log_exception()
     async def prepare(self) -> None:
