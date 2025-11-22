@@ -161,6 +161,8 @@ class TradesInterpretor(BaseEngine):
 
     @log_exception()
     async def prepare(self):
+        self._repos = dict()
+        self._unique_traders = dict()
         for interval in self.intervals:
             self._repos[interval] = MarketDataRepository(
                 market=self.market, interval=interval, create=True
