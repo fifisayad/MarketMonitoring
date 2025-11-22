@@ -1,6 +1,6 @@
 from typing import Annotated, List, Literal
 from dotenv import load_dotenv
-from fifi.repository.shm.market_data_repository import intervals_type
+from fifi.types.market import intervals_type
 from pydantic_settings import BaseSettings, NoDecode
 from pydantic import field_validator
 from fifi.enums import Exchange, Market

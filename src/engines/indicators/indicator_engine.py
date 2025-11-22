@@ -9,7 +9,7 @@ from fifi import (
 )
 from fifi.enums.market import MarketStat
 from fifi.enums import Market
-from fifi.repository.shm.market_data_repository import intervals_type
+from fifi.types.market import intervals_type
 
 from ...common.settings import Settings
 from .calcs.rsi import _rsi_numba

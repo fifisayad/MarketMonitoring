@@ -3,7 +3,7 @@ import json
 import time
 import threading
 from queue import Queue
-from fifi.repository.shm.market_data_repository import intervals_type
+from fifi.types.market import intervals_type
 import websocket
 from typing import Any, Dict, Optional, Set
 
