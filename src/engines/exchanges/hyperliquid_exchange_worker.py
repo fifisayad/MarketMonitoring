@@ -1,45 +1,38 @@
+import asyncio
 import json
 import time
 import threading
+from queue import Queue
+from fifi.repository.shm.market_data_repository import intervals_type
 import websocket
-import numpy as np
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional, Set
 
 from hyperliquid.info import Info
 from hyperliquid.utils import constants
 
-from fifi import log_exception, LoggerFactory, MonitoringSHMRepository
-from fifi.enums import Candle, Exchange, Market
+from fifi import BaseEngine, log_exception, LoggerFactory, MarketDataRepository
+from fifi.enums import Exchange, Market
 
 from .base import BaseExchangeWorker
 from ...common.settings import Settings
 from ...helpers.hyperliquid_helpers import *
+from ...helpers.intervals_helpers import *
 
 
 RECONNECT_MIN_DELAY = 2
 RECONNECT_MAX_DELAY = 20
 
 
-class HyperliquidExchangeWorker(BaseExchangeWorker):
-    exchange = Exchange.HYPERLIQUID
-    base_url: str
-    ws_url: str
-    name: str
-    info: Info
-
-    def __init__(
-        self,
-        market: Market,
-        monitoring_repo: MonitoringSHMRepository,
-        network: Literal["mainnet", "testnet"] = "mainnet",
-    ):
-        super().__init__(market, monitoring_repo)
-        self.name = f"{self.exchange.value}_{self.market.value}"
+class HyperWS(BaseEngine):
+    def __init__(self, market: Market, msg_queue: Queue):
+        super().__init__(run_in_process=False)
+        self.name = f"HyperWS-{market.value}"
         self.LOGGER = LoggerFactory().get(self.name)
-        self.market_row_index = self.monitoring_repo.row_index[self.market]
+        self.msg_queue = msg_queue
+        self.market = market
         self.settings = Settings()
 
-        if network == "testnet":
+        if self.settings.EXCHANGE_NETWORK == "testnet":
             self.base_url = constants.TESTNET_API_URL
             self.ws_url = "wss://api.hyperliquid-testnet.xyz/ws"
         else:
@@ -49,31 +42,18 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         # WS state
         self._ws: Optional[websocket.WebSocketApp] = None
         self._ws_thread: Optional[threading.Thread] = None
-        self._ws_stop = False
         self._ws_reset = False
         self.last_update_timestamp = time.time()
         self.reconnect_delay = RECONNECT_MIN_DELAY
 
-        # candle time
-        self.current_candle_time = 0
-        self.next_candle_time = 0
+    async def prepare(self):
+        pass
 
-    @log_exception()
-    def start(self):
-        self.info = Info(self.base_url, skip_ws=True)
-        self._ws_stop = False
-        last_update_timestamp = self.last_update_timestamp
-        self._ws_thread = threading.Thread(target=self.run_forever, daemon=True)
-        self._ws_thread.start()
-        self.LOGGER.info(f"create info and websocket for {self.market.value}")
+    async def postpare(self):
+        pass
+
+    async def execute(self):
         while True:
-            if self.last_update_timestamp > last_update_timestamp:
-                self.LOGGER.info(f"{self.market.value}: websocket started")
-                break
-
-    @log_exception()
-    def run_forever(self) -> None:
-        while not self._ws_stop:
             try:
                 self._ws = websocket.WebSocketApp(
                     self.ws_url,
@@ -136,7 +116,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
     def _on_close(
         self, ws: websocket.WebSocketApp, status_code: int, msg: str
     ) -> None:  # pragma: no cover
-        self.monitoring_repo.clear_is_updated(self.market)
+        self._ws_reset = True
         self.LOGGER.error(f"{self.market.value}: closed ws: {status_code=} {msg=}")
 
     def close_ws(self) -> None:
@@ -147,6 +127,10 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         except:
             pass
 
+    def reset(self):
+        if not self._ws_reset:
+            self.close_ws()
+
     @log_exception()
     def _handle_ws_message(self, msg: Dict[str, Any]) -> None:
         channel = msg.get("channel")
@@ -155,112 +139,191 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             return
         if channel == "trades":
             if isinstance(data, list):
-                for trade in data:
-                    self._ingest_trade(trade)
+                self.msg_queue.put(data)
 
         self.last_update_timestamp = time.time()
 
-    def _ingest_trade(self, trade: dict):
+
+class TradesInterpretor(BaseEngine):
+    _repos: Dict[intervals_type, MarketDataRepository]
+    _unique_traders: Dict[intervals_type, Set[str]]
+    info: Info
+
+    def __init__(self, market: Market, msg_queue: Queue):
+        super().__init__(run_in_process=False)
+        self.name = f"TradesInterpretor-{market.value}"
+        self.LOGGER = LoggerFactory().get(self.name)
+        self.msg_queue = msg_queue
+        self.market = market
+        self.settings = Settings()
+        self.intervals = self.settings.INTERVALS
+        self.info = Info(skip_ws=True)
+
+    @log_exception()
+    async def prepare(self):
+        for interval in self.intervals:
+            self._repos[interval] = MarketDataRepository(
+                market=self.market, interval=interval, create=True
+            )
+            self._unique_traders[interval] = set()
+            self.update_data(last_trade_time=0, interval=interval)
+            await asyncio.sleep(60)
+
+    @log_exception()
+    async def execute(self):
+        while True:
+            trades = self.msg_queue.get()
+            for trade in trades:
+                for interval in self.intervals:
+                    self._ingest_trade(trade=trade, interval=interval)
+
+    def _ingest_trade(self, trade: Dict, interval: intervals_type):
         price = float(trade["px"])
         size = float(trade["sz"])
-        last_candle_time = self.monitoring_repo.get_current_candle_time(self.market)
-        self.monitoring_repo.set_last_trade(self.market, float(trade["px"]))
-        if trade["time"] - (60 * 1000) > last_candle_time:
-            self.init_close_prices(trade["time"])
-        if trade["time"] >= self.next_candle_time:
-            self.monitoring_repo.candles[self.market_row_index] = np.roll(
-                self.monitoring_repo.candles[self.market_row_index],
-                shift=-1,
-                axis=1,
-            )
-            self.monitoring_repo.set_current_candle_time(
-                self.market, self.next_candle_time
-            )
-            self.current_candle_time = self.next_candle_time
-            self.next_candle_time = self.current_candle_time + (60 * 1000)
-            self.monitoring_repo.candles[self.market_row_index, :, -1] = price
-            self.monitoring_repo.candles[self.market_row_index][Candle.VOL.value][
-                -1
-            ] = size
+        last_candle_time = self._repos[interval].get_time()
+        next_candle_time = last_candle_time + to_time(interval)
+        if trade["time"] < last_candle_time:
+            # not consider this trade
             return
-        self.monitoring_repo.candles[self.market_row_index][Candle.CLOSE.value][
-            -1
-        ] = price
-        if (
-            price
-            < self.monitoring_repo.candles[self.market_row_index][Candle.LOW.value][-1]
-        ):
-            self.monitoring_repo.candles[self.market_row_index][Candle.LOW.value][
-                -1
-            ] = price
-        if (
-            price
-            > self.monitoring_repo.candles[self.market_row_index][Candle.HIGH.value][-1]
-        ):
-            self.monitoring_repo.candles[self.market_row_index][Candle.HIGH.value][
-                -1
-            ] = price
-        self.monitoring_repo.candles[self.market_row_index][Candle.VOL.value] += size
+        elif trade["time"] - to_time(interval) > last_candle_time:
+            self.update_data(last_trade_time=trade["time"], interval=interval)
+            return
+        elif trade["time"] >= next_candle_time:
+            self._repos[interval].create_candle()
+            self._unique_traders[interval].clear()
+            self._repos[interval].set_time(next_candle_time)
+            self._repos[interval].set_open_price(price)
+        self._repos[interval].set_last_trade(price)
+        self._repos[interval].add_vol(size)
+        self._repos[interval].set_close_price(price)
+        if price < self._repos[interval].get_lows(-1)[0]:
+            self._repos[interval].set_low_price(price)
+        if price > self._repos[interval].get_highs(-1)[0]:
+            self._repos[interval].set_high_price(price)
 
-    def init_close_prices(self, trade_time: int):
-        trade_time = trade_time - (trade_time % (60 * 1000))
+        if trade["side"] == "B":
+            self._repos[interval].add_buyer_vol(size)
+        else:
+            self._repos[interval].add_seller_vol(size)
+
+        for user in trade["users"]:
+            if not user in self._unique_traders[interval]:
+                self._unique_traders[interval].add(user)
+                self._repos[interval].add_unique_traders(1)
+
+    def update_data(self, last_trade_time: int, interval: intervals_type) -> None:
+        end_time = last_trade_time - (last_trade_time % to_time(interval))
+        if last_trade_time == 0:
+            start_time = end_time - (self._repos[interval]._rows * to_time(interval))
+        else:
+            start_time = int(self._repos[interval].get_time())
         candles = self.info.candles_snapshot(
             name=market_to_hyper_market(self.market),
-            interval="1m",
-            startTime=trade_time - (200 * 60 * 1000),
-            endTime=trade_time,
+            interval=interval,
+            endTime=end_time,
+            startTime=start_time,
         )
-        candles_length = len(candles)
-        for i in range(self.monitoring_repo.candles_length):
-            self.monitoring_repo.candles[self.market_row_index][Candle.CLOSE.value][
-                i
-            ] = float(
-                candles[candles_length - self.monitoring_repo.candles_length + i]["c"]
-            )
-            self.monitoring_repo.candles[self.market_row_index][Candle.OPEN.value][
-                i
-            ] = float(
-                candles[candles_length - self.monitoring_repo.candles_length + i]["o"]
-            )
-            self.monitoring_repo.candles[self.market_row_index][Candle.HIGH.value][
-                i
-            ] = float(
-                candles[candles_length - self.monitoring_repo.candles_length + i]["h"]
-            )
-            self.monitoring_repo.candles[self.market_row_index][Candle.LOW.value][i] = (
-                float(
-                    candles[candles_length - self.monitoring_repo.candles_length + i][
-                        "l"
-                    ]
-                )
-            )
-            self.monitoring_repo.candles[self.market_row_index][Candle.VOL.value][i] = (
-                float(
-                    candles[candles_length - self.monitoring_repo.candles_length + i][
-                        "v"
-                    ]
-                )
-            )
-        self.current_candle_time = trade_time
-        self.next_candle_time = self.current_candle_time + (60 * 1000)
-        self.monitoring_repo.set_current_candle_time(
-            self.market, self.current_candle_time
-        )
-        self.monitoring_repo.set_is_updated(self.market)
+        for candle in candles:
+            if candle["t"] == end_time:
+                continue
+            self._repos[interval].create_candle()
+            self._repos[interval].set_last_trade(float(candle["c"]))
+            self._repos[interval].set_close_price(float(candle["c"]))
+            self._repos[interval].set_open_price(float(candle["o"]))
+            self._repos[interval].set_high_price(float(candle["h"]))
+            self._repos[interval].set_low_price(float(candle["l"]))
+            self._repos[interval].set_vol(float(candle["v"]))
+            self._repos[interval].set_time(candle["t"])
+
+    def raise_unhealthy(self):
+        for interval in self.intervals:
+            self._repos[interval].health.clear_is_updated()
+
+    def back_to_healthy(self):
+        for interval in self.intervals:
+            self._repos[interval].health.set_is_updated()
+
+    async def postpare(self):
+        for interval, repo in self._repos.items():
+            repo.close()
+
+
+class HyperliquidExchangeWorker(BaseExchangeWorker):
+    exchange = Exchange.HYPERLIQUID
+    base_url: str
+    ws_url: str
+    name: str
+
+    def __init__(
+        self,
+        market: Market,
+    ):
+        super().__init__(market)
+        self.name = f"{self.exchange.value}_{self.market.value}"
+        self.LOGGER = LoggerFactory().get(self.name)
+        self.settings = Settings()
 
     @log_exception()
-    def reset(self):
-        if not self._ws_reset:
-            self.close_ws()
+    def ignite(self):
+        self.start()
 
     @log_exception()
-    def stop(self):
+    async def prepare(self):
+        self.LOGGER.info("init worker exchange...")
+        self.msg_queue = Queue()
+        self.hyper_ws = HyperWS(market=self.market, msg_queue=self.msg_queue)
+        self.hyper_ws.start()
+        self.trades_intrepretor = TradesInterpretor(
+            market=self.market, msg_queue=self.msg_queue
+        )
+        self.trades_intrepretor.start()
+        self.hard_reset = False
+        self.soft_reset = False
+
+    @log_exception()
+    async def execute(self):
+        # watch dog procedure
+        while True:
+            if (
+                time.time() - self.hyper_ws.last_update_timestamp
+                > self.settings.HARD_RESET_TIME_THRESHOLD
+            ):
+                if self.hard_reset:
+                    raise Exception("Hard Reset Not Working")
+                try:
+                    self.trades_intrepretor.raise_unhealthy()
+                    self.LOGGER.critical(f"HARD reset")
+                    self.hyper_ws.stop()
+                    del self.hyper_ws
+                    self.hyper_ws = HyperWS(
+                        market=self.market, msg_queue=self.msg_queue
+                    )
+                    self.hyper_ws.start()
+                    self.hard_reset = True
+                except Exception as e:
+                    self.LOGGER.error(f"Error: {e}")
+
+            elif (
+                time.time() - self.hyper_ws.last_update_timestamp
+                > self.settings.RESET_TIME_THRESHOLD
+            ):
+                self.trades_intrepretor.raise_unhealthy()
+                self.LOGGER.info(f"SOFT reset")
+                self.hyper_ws.reset()
+                self.soft_reset = True
+            elif self.hard_reset or self.soft_reset:
+                self.trades_intrepretor.back_to_healthy()
+                self.hard_reset = False
+                self.soft_reset = False
+            await asyncio.sleep(10)
+
+    async def postpare(self):
+        return await super().postpare()
+
+    @log_exception()
+    def shutdwon(self):
         self.LOGGER.info(f"shutting down {self.name} exchange worker....")
-        self._ws_stop = True
-        self.close_ws()
-        if self._ws:
-            self._ws.keep_running = False
-            self._ws = None
-        self._ws_thread = None
-        self.reconnect_delay = RECONNECT_MIN_DELAY
+        self.trades_intrepretor.stop()
+        self.hyper_ws.stop()
+        self.stop()
         self.LOGGER.info(f"{self.name} exchange worker is closed")
