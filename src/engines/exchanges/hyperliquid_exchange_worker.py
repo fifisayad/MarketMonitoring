@@ -216,6 +216,8 @@ class TradesInterpretor(BaseEngine):
     def update_data(self, last_trade_time: int, interval: intervals_type) -> None:
         end_time = last_trade_time - (last_trade_time % to_time(interval))
         if last_trade_time == 0:
+            last_trade_time = int(time.time() * 1000)
+            end_time = last_trade_time - (last_trade_time % to_time(interval))
             start_time = end_time - (self._repos[interval]._rows * to_time(interval))
         else:
             start_time = int(self._repos[interval].get_time())
@@ -321,12 +323,12 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
             await asyncio.sleep(10)
 
     async def postpare(self):
-        return await super().postpare()
+        self.LOGGER.info(f"shutting down {self.name} trades_intrepretor....")
+        self.trades_intrepretor.stop()
+        self.LOGGER.info(f"shutting down {self.name} websocket ....")
+        self.hyper_ws.stop()
 
     @log_exception()
     def shutdown(self):
         self.LOGGER.info(f"shutting down {self.name} exchange worker....")
-        self.trades_intrepretor.stop()
-        self.hyper_ws.stop()
         self.stop()
-        self.LOGGER.info(f"{self.name} exchange worker is closed")
