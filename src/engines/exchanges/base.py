@@ -16,6 +16,7 @@ class BaseExchangeWorker(BaseEngine, ABC):
     shutdown_event: EventType
 
     def __init__(self, market: Market):
+        super().__init__(run_in_process=True)
         self.market = market
         self.shutdown_event = Event()
 
