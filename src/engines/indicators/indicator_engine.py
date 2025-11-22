@@ -63,12 +63,15 @@ class IndicatorEngine(BaseEngine):
 
     def get_calc_result(self, interval: intervals_type, stat: MarketStat):
         repo = self._data_repos[interval]
+        closes = repo.get_closes()
+        lows = repo.get_lows()
+        highs = repo.get_highs()
         if stat == MarketStat.ATR14:
-            return _atr_numba(repo.get_highs(), repo.get_lows(), repo.get_closes(), 14)
+            return _atr_numba(highs, lows, closes, 14)
         elif stat == MarketStat.RSI14:
-            return round(_rsi_numba(repo.get_closes(), 14), 2)
+            return round(_rsi_numba(closes, 14), 2)
         elif stat == MarketStat.HMA:
-            return _hma_numba(repo.get_closes(), 55)
+            return _hma_numba(closes, 55)
         else:
             return 0
 
