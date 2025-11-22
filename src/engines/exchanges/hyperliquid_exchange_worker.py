@@ -321,7 +321,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         return await super().postpare()
 
     @log_exception()
-    def shutdwon(self):
+    def shutdown(self):
         self.LOGGER.info(f"shutting down {self.name} exchange worker....")
         self.trades_intrepretor.stop()
         self.hyper_ws.stop()
