@@ -196,7 +196,6 @@ class TradesInterpretor(BaseEngine):
             self.update_data(last_trade_time=trade["time"], interval=interval)
             return
         elif trade["time"] >= next_candle_time:
-            print("next candle")
             self._repos[interval].create_candle()
             self._unique_traders[interval].clear()
             self._repos[interval].set_time(next_candle_time)
@@ -292,7 +291,8 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self.trades_intrepretor.start()
         self.hard_reset = False
         self.soft_reset = False
-        await asyncio.sleep(60)
+        await asyncio.sleep(len(self.settings.INTERVALS) * 65)
+        self.trades_intrepretor.back_to_healthy()
 
     @log_exception()
     async def execute(self):
