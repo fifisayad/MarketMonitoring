@@ -78,3 +78,5 @@ class IndicatorEngine(BaseEngine):
     async def postpare(self):
         for interval, repo in self._repos.items():
             repo.close()
+        for interval, repo in self._data_repos.items():
+            repo.close()
