@@ -57,23 +57,23 @@ def read_shm(
                 interval=interv, market=market
             )
         else:
-            for market in settings.MARKETS:
-                if market not in stat_repos:
-                    stat_repos[market] = dict()
-                if market not in data_repos:
-                    data_repos[market] = dict()
-                stat_repos[market][interv] = MarketStatRepository(
-                    interval=interv, market=market
+            for mark in settings.MARKETS:
+                if mark not in stat_repos:
+                    stat_repos[mark] = dict()
+                if mark not in data_repos:
+                    data_repos[mark] = dict()
+                stat_repos[mark][interv] = MarketStatRepository(
+                    interval=interv, market=mark
                 )
-                data_repos[market][interv] = MarketDataRepository(
-                    interval=interv, market=market
+                data_repos[mark][interv] = MarketDataRepository(
+                    interval=interv, market=mark
                 )
 
     if stat:
-        for market, interval_repo in stat_repos.items():
+        for mark, interval_repo in stat_repos.items():
             for interv, repo in interval_repo.items():
                 stat_value = repo.get_last_stat(stat=stat)
-                LOGGER.info(f"{market.value.upper()}-> {stat.value}={stat_value}")
+                LOGGER.info(f"{mark.value.upper()}-> {stat.value}={stat_value}")
         return
 
     print("\n######################################################################\n")
@@ -94,9 +94,9 @@ def read_shm(
             "traders",
         ]
     ]
-    for market, interval_repo in data_repos.items():
+    for mark, interval_repo in data_repos.items():
         for interv, repo in interval_repo.items():
-            data = [market.value, interv]
+            data = [mark.value, interv]
             candle = get_market_last_candle(repo)
             candles_data.append(data + candle)
     widths = [
@@ -118,9 +118,9 @@ def read_shm(
             "hma",
         ]
     ]
-    for market, interval_repo in stat_repos.items():
+    for mark, interval_repo in stat_repos.items():
         for interv, repo in interval_repo.items():
-            data = [market.value, interv]
+            data = [mark.value, interv]
             stats = get_market_last_stat(repo)
             stat_data.append(data + stats)
     widths = [
