@@ -12,7 +12,7 @@ settings = Settings()
 LOGGER = LoggerFactory().get(__name__)
 
 
-def get_market_last_candle(repo: MarketDataRepository) -> List[float]:
+def get_market_last_candle(repo: MarketDataRepository) -> List[str | float]:
     close = repo.get_closes()[-1]
     open = repo.get_opens()[-1]
     high = repo.get_highs()[-1]
@@ -21,8 +21,9 @@ def get_market_last_candle(repo: MarketDataRepository) -> List[float]:
     svol = round(repo.get_seller_vol(), 2)
     bvol = round(repo.get_buyer_vol(), 2)
     traders = round(repo.get_unique_traders(), 2)
+    alive = "\u2705" if repo.health.is_updated() else "\U0001f6d1"
 
-    return [close, open, high, low, vol, svol, bvol, traders]
+    return [alive, close, open, high, low, vol, svol, bvol, traders]
 
 
 def get_market_last_stat(repo: MarketStatRepository) -> List[float]:
@@ -61,9 +62,9 @@ def read_shm(
                     stat_repos[market] = dict()
                 if market not in data_repos:
                     data_repos[market] = dict()
-                # stat_repos[market][interv] = MarketStatRepository(
-                #     interval=interv, market=market
-                # )
+                stat_repos[market][interv] = MarketStatRepository(
+                    interval=interv, market=market
+                )
                 data_repos[market][interv] = MarketDataRepository(
                     interval=interv, market=market
                 )
@@ -75,11 +76,14 @@ def read_shm(
                 LOGGER.info(f"{market.value.upper()}-> {stat.value}={stat_value}")
         return
 
+    print("\n######################################################################\n")
     # candles data
+    print("CANDLES")
     candles_data: List[List[str | float]] = [
         [
             "market",
             "interval",
+            "alive",
             "close",
             "open",
             "high",
@@ -102,7 +106,9 @@ def read_shm(
     for row in candles_data:
         print(" | ".join(str(cell).ljust(widths[i]) for i, cell in enumerate(row)))
 
-    # candles data
+    print("\n######################################################################\n")
+    # stats data
+    print("STATS")
     stat_data: List[List[str | float]] = [
         [
             "market",
