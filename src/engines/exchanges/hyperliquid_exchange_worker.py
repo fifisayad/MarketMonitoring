@@ -25,7 +25,7 @@ RECONNECT_MAX_DELAY = 20
 
 class HyperWS(BaseEngine):
     def __init__(self, market: Market, msg_queue: Queue):
-        super().__init__(run_in_process=False)
+        super().__init__(run_in_process=False, catch_interrupt=False)
         self.name = f"HyperWS-{market.value}"
         self.LOGGER = LoggerFactory().get(self.name)
         self.msg_queue = msg_queue
@@ -53,7 +53,7 @@ class HyperWS(BaseEngine):
         pass
 
     async def execute(self):
-        while True:
+        while self.stop_event and not self.stop_event.is_set():
             try:
                 self._ws = websocket.WebSocketApp(
                     self.ws_url,
@@ -69,7 +69,7 @@ class HyperWS(BaseEngine):
             self.LOGGER.info(
                 f"{self.market.value}: Reconnecting in {self.reconnect_delay}s..."
             )
-            time.sleep(self.reconnect_delay)
+            await asyncio.sleep(self.reconnect_delay)
             self.reconnect_delay = min(self.reconnect_delay * 2, RECONNECT_MAX_DELAY)
 
     def _on_open(self, ws: websocket.WebSocketApp) -> None:
@@ -131,6 +131,10 @@ class HyperWS(BaseEngine):
         if not self._ws_reset:
             self.close_ws()
 
+    def shutdown(self):
+        self.close_ws()
+        self.stop()
+
     @log_exception()
     def _handle_ws_message(self, msg: Dict[str, Any]) -> None:
         channel = msg.get("channel")
@@ -178,6 +182,7 @@ class TradesInterpretor(BaseEngine):
             for trade in trades:
                 for interval in self.intervals:
                     self._ingest_trade(trade=trade, interval=interval)
+            await asyncio.sleep(0)
 
     def _ingest_trade(self, trade: Dict, interval: intervals_type):
         price = float(trade["px"])
@@ -187,14 +192,17 @@ class TradesInterpretor(BaseEngine):
         if trade["time"] < last_candle_time:
             # not consider this trade
             return
-        elif trade["time"] - to_time(interval) > last_candle_time:
+        elif trade["time"] - to_time(interval) > next_candle_time:
             self.update_data(last_trade_time=trade["time"], interval=interval)
             return
         elif trade["time"] >= next_candle_time:
+            print("next candle")
             self._repos[interval].create_candle()
             self._unique_traders[interval].clear()
             self._repos[interval].set_time(next_candle_time)
             self._repos[interval].set_open_price(price)
+            self._repos[interval].set_high_price(price)
+            self._repos[interval].set_low_price(price)
         self._repos[interval].set_last_trade(price)
         self._repos[interval].add_vol(size)
         self._repos[interval].set_close_price(price)
@@ -284,6 +292,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self.trades_intrepretor.start()
         self.hard_reset = False
         self.soft_reset = False
+        await asyncio.sleep(60)
 
     @log_exception()
     async def execute(self):
@@ -326,7 +335,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         self.LOGGER.info(f"shutting down {self.name} trades_intrepretor....")
         self.trades_intrepretor.stop()
         self.LOGGER.info(f"shutting down {self.name} websocket ....")
-        self.hyper_ws.stop()
+        self.hyper_ws.shutdown()
 
     @log_exception()
     def shutdown(self):
