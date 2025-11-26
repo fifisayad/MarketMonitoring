@@ -1,32 +1,31 @@
 from abc import ABC, abstractmethod
-from typing import Set
+from typing import List
+from multiprocessing.synchronize import Event as EventType
+from multiprocessing import Event
 
-from fifi.enums import Exchange, Market, DataType
-from fifi import MonitoringSHMRepository
+from fifi.enums import Exchange, Market
+from fifi import BaseEngine
+from fifi.repository.shm.market_data_repository import intervals_type
 
 
-class BaseExchangeWorker(ABC):
+class BaseExchangeWorker(BaseEngine, ABC):
     exchange: Exchange
     market: Market
-    data_types: Set[DataType]
-    monitoring_repo: MonitoringSHMRepository
+    intervals: List[intervals_type]
     last_update_timestamp: float
+    shutdown_event: EventType
 
-    def __init__(self, market: Market, monitoring_repo: MonitoringSHMRepository):
+    def __init__(self, market: Market):
+        super().__init__(run_in_process=True)
         self.market = market
-        self.monitoring_repo = monitoring_repo
+        self.shutdown_event = Event()
 
     @abstractmethod
-    def start(self):
-        """Establish WebSocket connection"""
+    def ignite(self):
+        """start exchange worker engine procedure"""
         pass
 
     @abstractmethod
-    def stop(self):
+    def shutdown(self):
         """Cleanup tasks and shutdown logic"""
-        pass
-
-    @abstractmethod
-    def reset(self):
-        """Reset service"""
         pass

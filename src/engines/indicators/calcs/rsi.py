@@ -6,7 +6,11 @@ from typing import Any, Union
 
 @njit
 def _rsi_numba(prices: np.ndarray, period: int = 14) -> Union[float, Any]:
-    deltas = np.diff(prices)
+    n = prices.size
+    deltas = np.empty(n - 1, dtype=prices.dtype)
+    for i in range(n - 1):
+        deltas[i] = prices[i + 1] - prices[i]
+
     gains = np.where(deltas > 0, deltas, 0.0)
     losses = np.where(deltas < 0, -deltas, 0.0)
 

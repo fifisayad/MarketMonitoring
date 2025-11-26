@@ -1,7 +1,9 @@
 import argparse
-from typing import List, Optional
-from fifi.enums import Market, MarketStat
-from fifi import MonitoringSHMRepository, LoggerFactory
+from typing import Dict, List, Optional
+from fifi.enums import Market
+from fifi.enums.market import MarketStat
+from fifi import MarketStatRepository, MarketDataRepository, LoggerFactory
+from fifi.types.market import intervals_type
 
 from src.common.settings import Settings
 
@@ -10,43 +12,92 @@ settings = Settings()
 LOGGER = LoggerFactory().get(__name__)
 
 
-def get_market_last_candle(
-    repo: MonitoringSHMRepository, market: Market
-) -> List[float]:
-    close = repo.get_close_prices(market)[-1]
-    open = repo.get_open_prices(market)[-1]
-    high = repo.get_high_prices(market)[-1]
-    low = repo.get_low_prices(market)[-1]
-    vol = repo.get_vols(market)[-1]
-    return [close, open, high, low, vol]
+def get_market_last_candle(repo: MarketDataRepository) -> List[str | float]:
+    close = repo.get_closes()[-1]
+    open = repo.get_opens()[-1]
+    high = repo.get_highs()[-1]
+    low = repo.get_lows()[-1]
+    vol = round(repo.get_vols()[-1], 2)
+    svol = round(repo.get_seller_vol(), 2)
+    bvol = round(repo.get_buyer_vol(), 2)
+    traders = round(repo.get_unique_traders(), 2)
+    alive = "\u2705" if repo.health.is_updated() else "\U0001f6d1"
+
+    return [alive, close, open, high, low, vol, svol, bvol, traders]
+
+
+def get_market_last_stat(repo: MarketStatRepository) -> List[float]:
+    rsi = repo.get_last_stat(MarketStat.RSI14)
+    atr = repo.get_last_stat(MarketStat.ATR14)
+    hma = repo.get_last_stat(MarketStat.HMA)
+    return [rsi, atr, hma]
 
 
 def read_shm(
-    repo: MonitoringSHMRepository, market: Optional[Market], stat: Optional[MarketStat]
+    market: Optional[Market],
+    stat: Optional[MarketStat],
+    interval: Optional[intervals_type],
 ) -> None:
-    if stat:
+    stat_repos: Dict[Market, Dict[intervals_type, MarketStatRepository]] = dict()
+    data_repos: Dict[Market, Dict[intervals_type, MarketDataRepository]] = dict()
+    if interval is not None:
+        intervals: List[intervals_type] = [interval]
+    else:
+        intervals = settings.INTERVALS
+    for interv in intervals:
         if market:
-            stat_value = repo.get_stat(market, stat)
-            LOGGER.info(f"{market.value.upper()}-> {stat.value}={stat_value}")
+            if market not in stat_repos:
+                stat_repos[market] = dict()
+            if market not in data_repos:
+                data_repos[market] = dict()
+            stat_repos[market][interv] = MarketStatRepository(
+                interval=interv, market=market
+            )
+            data_repos[market][interv] = MarketDataRepository(
+                interval=interv, market=market
+            )
         else:
-            for market_con in settings.MARKETS:
-                stat_value = repo.get_stat(market_con, stat)
-                LOGGER.info(f"{market_con.value.upper()}-> {stat.value}={stat_value}")
-        # don't need to fetch overall report
+            for mark in settings.MARKETS:
+                if mark not in stat_repos:
+                    stat_repos[mark] = dict()
+                if mark not in data_repos:
+                    data_repos[mark] = dict()
+                stat_repos[mark][interv] = MarketStatRepository(
+                    interval=interv, market=mark
+                )
+                data_repos[mark][interv] = MarketDataRepository(
+                    interval=interv, market=mark
+                )
+
+    if stat:
+        for mark, interval_repo in stat_repos.items():
+            for interv, repo in interval_repo.items():
+                stat_value = repo.get_last_stat(stat=stat)
+                LOGGER.info(f"{mark.value.upper()}-> {stat.value}={stat_value}")
         return
 
+    print("\n######################################################################\n")
     # candles data
+    print("CANDLES")
     candles_data: List[List[str | float]] = [
-        ["market", "close", "open", "high", "low", "vol"]
+        [
+            "market",
+            "interval",
+            "alive",
+            "close",
+            "open",
+            "high",
+            "low",
+            "vol",
+            "svol",
+            "bvol",
+            "traders",
+        ]
     ]
-    if market:
-        data = [market.value]
-        candle = get_market_last_candle(repo, market)
-        candles_data.append(data + candle)
-    else:
-        for market_con in settings.MARKETS:
-            data = [market_con.value]
-            candle = get_market_last_candle(repo, market_con)
+    for mark, interval_repo in data_repos.items():
+        for interv, repo in interval_repo.items():
+            data = [mark.value, interv]
+            candle = get_market_last_candle(repo)
             candles_data.append(data + candle)
     widths = [
         max(len(str(row[i])) for row in candles_data)
@@ -57,25 +108,28 @@ def read_shm(
 
     print("\n######################################################################\n")
     # stats data
-    if market:
-        print(f"{market=}")
-        for item in MarketStat.__iter__():
-            stat_value = repo.get_stat(market, item)
-            if item == MarketStat.IS_UPDATED:
-                stat_value = bool(stat_value)
-            print(f"{item.name.lower()}={stat_value}")
-    else:
-        for market_con in settings.MARKETS:
-            print(f"market={market_con}")
-            for item in MarketStat.__iter__():
-                stat_value = repo.get_stat(market_con, item)
-                if item == MarketStat.IS_UPDATED:
-                    stat_value = bool(stat_value)
-                print(f"{item.name.lower()}={stat_value}")
+    print("STATS")
+    stat_data: List[List[str | float]] = [
+        [
+            "market",
+            "interval",
+            "rsi",
+            "atr",
+            "hma",
+        ]
+    ]
+    for mark, interval_repo in stat_repos.items():
+        for interv, repo in interval_repo.items():
+            data = [mark.value, interv]
+            stats = get_market_last_stat(repo)
+            stat_data.append(data + stats)
+    widths = [
+        max(len(str(row[i])) for row in stat_data) for i in range(len(stat_data[0]))
+    ]
+    for row in stat_data:
+        print(" | ".join(str(cell).ljust(widths[i]) for i, cell in enumerate(row)))
 
-            print(
-                "\n######################################################################\n"
-            )
+    print("\n######################################################################\n")
 
 
 def main():
@@ -87,20 +141,26 @@ def main():
     parser.add_argument(
         "--stat", type=str, default=None, required=False, help="Read Market Stat"
     )
+    parser.add_argument(
+        "--interval", type=str, default=None, required=False, help="Read Interval"
+    )
     args = parser.parse_args()
 
     market = None
     market_stat = None
+    interval = None
     if args.market:
         market = Market(args.market)
         if market not in settings.MARKETS:
             raise ValueError(f"this {args.market=} is not in configuration")
     if args.stat:
         market_stat = MarketStat[args.stat]
-    repo = MonitoringSHMRepository(markets=settings.MARKETS)
+    if args.interval:
+        interval = args.interval
+        if interval not in settings.INTERVALS:
+            raise ValueError(f"this {interval=} not in the settings")
     LOGGER.info(f"connected to the SHM")
-    read_shm(repo, market, market_stat)
-    repo.close()
+    read_shm(market, market_stat, interval)
 
 
 if __name__ == "__main__":

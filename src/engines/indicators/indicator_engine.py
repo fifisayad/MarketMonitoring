@@ -1,6 +1,15 @@
 import asyncio
-from fifi import BaseEngine, MonitoringSHMRepository, log_exception, LoggerFactory
-from fifi.enums import Market, MarketStat
+from typing import Dict
+from fifi import (
+    BaseEngine,
+    MarketStatRepository,
+    MarketDataRepository,
+    log_exception,
+    LoggerFactory,
+)
+from fifi.enums.market import MarketStat
+from fifi.enums import Market
+from fifi.types.market import intervals_type
 
 from ...common.settings import Settings
 from .calcs.rsi import _rsi_numba
@@ -14,49 +23,60 @@ class IndicatorEngine(BaseEngine):
     market: Market
     indicator_name: str
     name: str
-    monitor_repo: MonitoringSHMRepository
+    _repos: Dict[intervals_type, MarketStatRepository]
+    _data_repos: Dict[intervals_type, MarketDataRepository]
 
     def __init__(
         self,
         market: Market,
-        monitor_repo: MonitoringSHMRepository,
         run_in_process: bool = True,
     ):
         super().__init__(run_in_process)
         self.market = market
         self.name = f"{self.market.value}_IndicatorEngine"
         self.settings = Settings()
-        self.monitor_repo = monitor_repo
-        self.market_row_index = self.monitor_repo.row_index[self.market]
-        self.periods = self.settings.INDICATORS_PERIODS
+        self._repos = dict()
+        self._data_repos = dict()
 
     @log_exception()
     async def prepare(self) -> None:
-        while True:
-            if self.monitor_repo.is_updated(self.market):
-                break
-            await asyncio.sleep(1)
+        for interval in self.settings.INTERVALS:
+            self._repos[interval] = MarketStatRepository(
+                market=self.market, interval=interval, create=True
+            )
+            self._data_repos[interval] = MarketDataRepository(
+                market=self.market, interval=interval
+            )
 
     @log_exception()
     async def execute(self) -> None:
         LOGGER.info(f"{self.name} is executing...")
         while True:
-            close_prices = self.monitor_repo.get_close_prices(self.market)
-            low_prices = self.monitor_repo.get_low_prices(self.market)
-            high_prices = self.monitor_repo.get_high_prices(self.market)
-            for period in self.periods:
-                rsi_val = round(_rsi_numba(close_prices, period), 2)
-                atr_val = _atr_numba(high_prices, low_prices, close_prices, period)
-                hma_val = _hma_numba(close_prices, 100)  # benchmark value for hma
+            for interval, repo in self._repos.items():
+                if self._data_repos[interval].get_time() > repo.get_time():
+                    repo.new_row()
+                    repo.set_time(self._data_repos[interval].get_time())
+                for stat in MarketStat:
+                    value = self.get_calc_result(interval, stat)
+                    repo.set_last_stat(stat, value)
+            await asyncio.sleep(0.1)
 
-                self.monitor_repo.set_stat(
-                    self.market, MarketStat[f"RSI{period}"], rsi_val
-                )
-                self.monitor_repo.set_stat(
-                    self.market, MarketStat[f"ATR{period}"], atr_val
-                )
-                self.monitor_repo.set_stat(self.market, MarketStat["HMA"], hma_val)
-            await asyncio.sleep(0.01)
+    def get_calc_result(self, interval: intervals_type, stat: MarketStat):
+        repo = self._data_repos[interval]
+        closes = repo.get_closes()
+        lows = repo.get_lows()
+        highs = repo.get_highs()
+        if stat == MarketStat.ATR14:
+            return _atr_numba(highs, lows, closes, 14)
+        elif stat == MarketStat.RSI14:
+            return round(_rsi_numba(closes, 14), 2)
+        elif stat == MarketStat.HMA:
+            return _hma_numba(closes, 55)
+        else:
+            return 0
 
     async def postpare(self):
-        pass
+        for interval, repo in self._repos.items():
+            repo.close()
+        for interval, repo in self._data_repos.items():
+            repo.close()
