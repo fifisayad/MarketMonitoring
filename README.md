@@ -5,7 +5,7 @@
 This service provides **real-time market data** for trading pairs from the **Hyperliquid exchange**.  
 It is designed to be **lightweight**, **reliable**, and **modular**, enabling seamless integration with other systems through **Python shared memory**.
 
-The system continuously monitors market updates at a **1-minute ("1m") interval**, ensuring stable and accurate statistics that can be accessed by connected processes.
+The system continuously monitors market updates, ensuring stable and accurate statistics that can be accessed by connected processes.
 
 ---
 
@@ -74,12 +74,18 @@ docker exec -it market-monitoring python read.py --stat RSI5
 ## 🧩 Key Features
 
 - ✅ **Single Exchange Support** — Focused on **Hyperliquid** for optimized stability  
-- 🕐 **Fixed Interval** — Data updates every **1 minute**  
+- 🕐 **Dynamic Interval** — Data updates based on intervals configuration  
 - 💾 **Shared Memory Integration** — Zero-copy data sharing between local services  
 - 🔄 **Reliable and Stable Updates** — Automatic reconnection and error handling  
 - ⚙️ **Configuration-Based Setup** — No API or external trigger required  
 
 ---
+---
+## 📄Documenation
+System designs and Documenation is avaliable in this notion page. [MarketMonitoring](https://cream-scarf-445.notion.site/Market-Monitoring-23dd87f6fe3d8018a588cc71d56b83c4)
+
+---
+
 
 ## 📄 License
 
