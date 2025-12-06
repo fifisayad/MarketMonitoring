@@ -290,6 +290,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         )
         self.trades_intrepretor.start()
         self.hard_reset = False
+        self.hard_reset_retry = 0
         self.soft_reset = False
         await asyncio.sleep(len(self.settings.INTERVALS) * 65)
         self.trades_intrepretor.back_to_healthy()
@@ -303,7 +304,9 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                 > self.settings.HARD_RESET_TIME_THRESHOLD
             ):
                 if self.hard_reset:
-                    raise Exception("Hard Reset Not Working")
+                    self.LOGGER.critical(
+                        f"Hard Reset Not Working, retry {self.hard_reset_retry}th..."
+                    )
                 try:
                     self.trades_intrepretor.raise_unhealthy()
                     self.LOGGER.critical(f"HARD reset")
@@ -314,6 +317,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                     )
                     self.hyper_ws.start()
                     self.hard_reset = True
+                    self.hard_reset_retry += 1
                 except Exception as e:
                     self.LOGGER.error(f"Error: {e}")
 
@@ -329,7 +333,8 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
                 self.trades_intrepretor.back_to_healthy()
                 self.hard_reset = False
                 self.soft_reset = False
-            await asyncio.sleep(10)
+                self.hard_reset_retry = 1
+            await asyncio.sleep(10 * self.hard_reset_retry)
 
     async def postpare(self):
         self.LOGGER.info(f"shutting down {self.name} trades_intrepretor....")
