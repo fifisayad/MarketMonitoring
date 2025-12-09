@@ -54,7 +54,7 @@ class IndicatorEngine(BaseEngine):
         while True:
             for interval, repo in self._repos.items():
                 if self._data_repos[interval].get_time() > repo.get_time():
-                    repo.new_row()
+                    repo.create_candle()
                     repo.set_time(self._data_repos[interval].get_time())
                 for stat in MarketStat:
                     value = self.get_calc_result(interval, stat)
