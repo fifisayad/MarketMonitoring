@@ -290,7 +290,7 @@ class HyperliquidExchangeWorker(BaseExchangeWorker):
         )
         self.trades_intrepretor.start()
         self.hard_reset = False
-        self.hard_reset_retry = 0
+        self.hard_reset_retry = 1
         self.soft_reset = False
         await asyncio.sleep(len(self.settings.INTERVALS) * 65)
         self.trades_intrepretor.back_to_healthy()
