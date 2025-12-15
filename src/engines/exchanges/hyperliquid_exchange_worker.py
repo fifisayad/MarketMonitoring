@@ -219,6 +219,10 @@ class TradesInterpretor(BaseEngine):
             if not user in self._unique_traders[interval]:
                 self._unique_traders[interval].add(user)
                 self._repos[interval].add_unique_traders(1)
+                if trade["side"] == "B" and trade["users"].index(user) == 0:
+                    self._repos[interval].add_buyer_count(1)
+                elif trade["side"] == "A" and trade["users"].index(user) == 1:
+                    self._repos[interval].add_seller_count(1)
 
     def update_data(self, last_trade_time: int, interval: intervals_type) -> None:
         end_time = last_trade_time - (last_trade_time % to_time(interval))

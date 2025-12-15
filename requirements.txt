@@ -24,7 +24,7 @@ eth_abi==5.2.0
 fakeredis==2.31.1
 fastapi==0.115.14
 fastapi-cli==0.0.7
-fificore==0.1.9
+fificore==0.1.10
 greenlet==3.2.3
 gunicorn==23.0.0
 h11==0.16.0

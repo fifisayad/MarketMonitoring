@@ -21,9 +21,11 @@ def get_market_last_candle(repo: MarketDataRepository) -> List[str | float]:
     svol = round(repo.get_seller_vol(), 2)
     bvol = round(repo.get_buyer_vol(), 2)
     traders = round(repo.get_unique_traders(), 2)
+    buyers = round(repo.get_buyer_count(), 2)
+    sellers = round(repo.get_seller_count(), 2)
     alive = "\u2705" if repo.health.is_updated() else "\U0001f6d1"
 
-    return [alive, close, open, high, low, vol, svol, bvol, traders]
+    return [alive, close, open, high, low, vol, svol, bvol, traders, buyers, sellers]
 
 
 def get_market_last_stat(repo: MarketStatRepository) -> List[float]:
@@ -92,6 +94,8 @@ def read_shm(
             "svol",
             "bvol",
             "traders",
+            "buyers",
+            "sellers",
         ]
     ]
     for mark, interval_repo in data_repos.items():
