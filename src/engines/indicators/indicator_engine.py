@@ -68,6 +68,10 @@ class IndicatorEngine(BaseEngine):
         highs = repo.get_highs()
         if stat == MarketStat.ATR14:
             return _atr_numba(highs, lows, closes, 14)
+        if stat == MarketStat.ATR3:
+            return _atr_numba(highs, lows, closes, 3)
+        if stat == MarketStat.ATR5:
+            return _atr_numba(highs, lows, closes, 5)
         elif stat == MarketStat.RSI14:
             return round(_rsi_numba(closes, 14), 2)
         elif stat == MarketStat.HMA:
